@@ -453,45 +453,49 @@ const BudgetAssetsInsights = ({ budgetRows, assetsNewRows }: { budgetRows: any[]
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="p-2 rounded-lg relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, #ecfeff, #cffafe)", border: "1px solid #22d3ee" }}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="p-1 bg-cyan-500 text-white rounded-lg shadow-sm"><DollarSign size={12} /></div>
-            <BarChart2 size={12} className="text-cyan-700 opacity-40" />
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px" }}>
+        {/* Card 1 — إجمالي الموازنة */}
+        <div style={{ background:"linear-gradient(135deg,#ecfeff,#cffafe)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #22d3ee", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#06b6d4", borderRadius:"8px", display:"flex" }}><DollarSign size={13} color="white" /></div>
+            <BarChart2 size={12} style={{ color:"#0891b2", opacity:0.35 }} />
           </div>
-          <p className="text-cyan-900 font-black text-[10px] m-0">إجمالي الموازنة</p>
-          <p className="text-xs font-black text-cyan-800 m-0 mt-0.5">{budgetTotal.toLocaleString("en-US")} ج</p>
-          <p className="text-[9px] text-cyan-700 font-bold mt-0.5 m-0">{budgetRows.length} صنف</p>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#164e63" }}>إجمالي الموازنة</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#0e7490" }}>{budgetTotal.toLocaleString("en-US")} ج</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#0891b2" }}>{budgetRows.length} صنف</p>
         </div>
 
-        <div className="p-2 rounded-lg relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, #f0fdfa, #ccfbf1)", border: "1px solid #2dd4bf" }}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="p-1 bg-teal-500 text-white rounded-lg shadow-sm"><Building2 size={12} /></div>
-            <Package size={12} className="text-teal-700 opacity-40" />
+        {/* Card 2 — إجمالي الأصول */}
+        <div style={{ background:"linear-gradient(135deg,#f0fdfa,#ccfbf1)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #2dd4bf", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#14b8a6", borderRadius:"8px", display:"flex" }}><Building2 size={13} color="white" /></div>
+            <Package size={12} style={{ color:"#0d9488", opacity:0.35 }} />
           </div>
-          <p className="text-teal-900 font-black text-[10px] m-0">إجمالي الأصول</p>
-          <p className="text-xs font-black text-teal-800 m-0 mt-0.5">{assetsTotal.toLocaleString("en-US")} ج</p>
-          <p className="text-[9px] text-teal-700 font-bold mt-0.5 m-0">{assetsNewRows.length} أصل</p>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#134e4a" }}>إجمالي الأصول الجديدة</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#0f766e" }}>{assetsTotal.toLocaleString("en-US")} ج</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#0d9488" }}>{assetsNewRows.length} أصل</p>
         </div>
 
-        <div className="p-2 rounded-lg relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)", border: "1px solid #60a5fa" }}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="p-1 bg-blue-500 text-white rounded-lg shadow-sm"><TrendingUp size={12} /></div>
-            <Sparkles size={12} className="text-blue-700 opacity-40" />
+        {/* Card 3 — توقع العام القادم */}
+        <div style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #60a5fa", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#3b82f6", borderRadius:"8px", display:"flex" }}><TrendingUp size={13} color="white" /></div>
+            <Sparkles size={12} style={{ color:"#2563eb", opacity:0.35 }} />
           </div>
-          <p className="text-blue-900 font-black text-[10px] m-0">توقع العام القادم (+30%)</p>
-          <p className="text-xs font-black text-blue-800 m-0 mt-0.5">{forecastNextYear.toLocaleString("en-US")} ج</p>
-          <p className="text-[9px] text-blue-700 font-bold mt-0.5 m-0">+{forecastIncrease.toLocaleString("en-US")} ج</p>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#1e3a8a" }}>توقع العام القادم (+30%)</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#1d4ed8" }}>{forecastNextYear.toLocaleString("en-US")} ج</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#2563eb" }}>+{forecastIncrease.toLocaleString("en-US")} ج زيادة</p>
         </div>
 
-        <div className="p-2 rounded-lg relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, #ecfdf5, #d1fae5)", border: "1px solid #34d399" }}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="p-1 bg-emerald-500 text-white rounded-lg shadow-sm"><Target size={12} /></div>
-            <Award size={12} className="text-emerald-700 opacity-40" />
+        {/* Card 4 — متوسط تكلفة الصنف */}
+        <div style={{ background:"linear-gradient(135deg,#ecfdf5,#d1fae5)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #34d399", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#10b981", borderRadius:"8px", display:"flex" }}><Target size={13} color="white" /></div>
+            <Award size={12} style={{ color:"#059669", opacity:0.35 }} />
           </div>
-          <p className="text-emerald-900 font-black text-[10px] m-0">متوسط تكلفة الصنف</p>
-          <p className="text-xs font-black text-emerald-800 m-0 mt-0.5">{avgItemCost.toLocaleString("en-US")} ج</p>
-          <p className="text-[9px] text-emerald-700 font-bold mt-0.5 m-0">ذروة: {peakMonth?.name || "-"}</p>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#064e3b" }}>متوسط تكلفة الصنف</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#059669" }}>{avgItemCost.toLocaleString("en-US")} ج</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#10b981" }}>ذروة: {peakMonth?.name || "-"}</p>
         </div>
       </div>
 
@@ -645,22 +649,179 @@ const BudgetAssetsInsights = ({ budgetRows, assetsNewRows }: { budgetRows: any[]
   );
 };
 
+
+// ==================== ADMIN REPORTS INSIGHTS (Dashboard) ====================
+const AdminReportsInsights = ({ adminReports }: { adminReports: any[] }) => {
+  const PIE_COLORS = ["#6366f1","#0d9488","#f59e0b","#f43f5e","#8b5cf6","#14b8a6","#3b82f6","#ec4899","#10b981","#ef4444","#a855f7","#06b6d4"];
+
+  const totalValue = adminReports.reduce((s, r) => s + (Number(r.total_value) || 0), 0);
+  const totalQty   = adminReports.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+  const uniqueStores = new Set(adminReports.map(r => r.store_name).filter(Boolean)).size;
+  const uniqueTasks  = new Set(adminReports.map(r => r.task).filter(Boolean)).size;
+
+  // Monthly spending — based on report_month field
+  const MONTHS_ORDER = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const monthlyData = MONTHS_ORDER.map(m => {
+    const val = adminReports.filter(r => r.report_month === m).reduce((s, r) => s + (Number(r.total_value) || 0), 0);
+    return { name: m.slice(0, 3), fullName: m, value: Math.round(val) };
+  }).filter(m => m.value > 0);
+
+  const peakMonth = monthlyData.length ? [...monthlyData].sort((a,b) => b.value - a.value)[0] : null;
+
+  // Top stores
+  const storeMap: Record<string,number> = {};
+  adminReports.forEach(r => { const k = r.store_name || "غير محدد"; storeMap[k] = (storeMap[k]||0) + (Number(r.total_value)||0); });
+  const topStores = Object.entries(storeMap).map(([name,value]) => ({ name, value: Math.round(value) })).sort((a,b) => b.value - a.value).slice(0,6);
+
+  // Top tasks
+  const taskMap: Record<string,number> = {};
+  adminReports.forEach(r => { const k = r.task_description || r.task || "غير محدد"; taskMap[k] = (taskMap[k]||0) + (Number(r.total_value)||0); });
+  const topTasks = Object.entries(taskMap).map(([name,value]) => ({ name: name.length > 18 ? name.slice(0,16)+"…" : name, value: Math.round(value) })).sort((a,b) => b.value - a.value).slice(0,6);
+
+  if (adminReports.length === 0) return null;
+
+  return (
+    <div style={{ background:"white", borderRadius:"16px", border:"1px solid #e2e8f0", padding:"16px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px", flexWrap:"wrap", gap:"8px" }}>
+        <h3 style={{ margin:0, fontWeight:"900", fontSize:"14px", color:"#0f766e", display:"flex", alignItems:"center", gap:"6px" }}>
+          <CalendarDays size={16} /> تحليلات التقارير الإدارية 📋
+        </h3>
+        <span style={{ background:"#f0fdfa", color:"#0f766e", padding:"3px 10px", borderRadius:"12px", fontSize:"11px", fontWeight:"800", border:"1px solid #5eead4" }}>
+          {adminReports.length.toLocaleString("en-US")} سجل
+        </span>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px", marginBottom:"14px" }}>
+        {/* Card 1 — إجمالي المصروفات */}
+        <div style={{ background:"linear-gradient(135deg,#f0fdfa,#ccfbf1)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #2dd4bf", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#14b8a6", borderRadius:"8px", display:"flex" }}><DollarSign size={13} color="white" /></div>
+            <BarChart2 size={12} style={{ color:"#0d9488", opacity:0.35 }} />
+          </div>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#134e4a" }}>إجمالي المصروفات</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#0f766e" }}>{totalValue.toLocaleString("en-US", { maximumFractionDigits:0 })} ج</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#0d9488" }}>{adminReports.length} سجل</p>
+        </div>
+        {/* Card 2 — إجمالي الكميات */}
+        <div style={{ background:"linear-gradient(135deg,#fffbeb,#fef3c7)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #fcd34d", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#f59e0b", borderRadius:"8px", display:"flex" }}><Package size={13} color="white" /></div>
+            <TrendingUp size={12} style={{ color:"#d97706", opacity:0.35 }} />
+          </div>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#78350f" }}>إجمالي الكميات</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#b45309" }}>{totalQty.toLocaleString("en-US")}</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#d97706" }}>وحدة مصروفة</p>
+        </div>
+        {/* Card 3 — عدد المخازن */}
+        <div style={{ background:"linear-gradient(135deg,#f5f3ff,#ede9fe)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #c4b5fd", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#8b5cf6", borderRadius:"8px", display:"flex" }}><Building2 size={13} color="white" /></div>
+            <Users size={12} style={{ color:"#6d28d9", opacity:0.35 }} />
+          </div>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#3b0764" }}>عدد المخازن</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#6d28d9" }}>{uniqueStores}</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#7c3aed" }}>{uniqueTasks} task مختلفة</p>
+        </div>
+        {/* Card 4 — ذروة الصرف */}
+        <div style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe)", padding:"10px 12px", borderRadius:"10px", border:"1px solid #60a5fa", position:"relative", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+            <div style={{ padding:"5px", background:"#3b82f6", borderRadius:"8px", display:"flex" }}><CalendarDays size={13} color="white" /></div>
+            <Award size={12} style={{ color:"#2563eb", opacity:0.35 }} />
+          </div>
+          <p style={{ margin:0, fontSize:"10px", fontWeight:"800", color:"#1e3a8a" }}>ذروة الصرف</p>
+          <p style={{ margin:"4px 0 0", fontSize:"15px", fontWeight:"900", color:"#1d4ed8" }}>{peakMonth?.fullName || "-"}</p>
+          <p style={{ margin:"3px 0 0", fontSize:"9px", fontWeight:"700", color:"#3b82f6" }}>{peakMonth ? peakMonth.value.toLocaleString("en-US") + " ج" : "لا بيانات"}</p>
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"12px" }}>
+
+        {/* Monthly Bar Chart */}
+        <div style={{ background:"#f8fafc", borderRadius:"10px", padding:"10px", border:"1px solid #e2e8f0" }}>
+          <p style={{ margin:"0 0 6px", fontWeight:"800", fontSize:"11px", color:"#0f766e" }}>📅 المصروفات الشهرية</p>
+          <div style={{ height:"160px" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyData} margin={{ top:0, right:0, left:-22, bottom:0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" tick={{ fontSize:8, fill:"#64748b" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize:8, fill:"#64748b" }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v/1000).toFixed(0)+"k" : v} />
+                <RechartsTooltip
+                  formatter={(v: any) => [Number(v).toLocaleString("en-US") + " ج", "القيمة"]}
+                  labelFormatter={(_,p) => p?.[0]?.payload?.fullName || ""}
+                  contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }}
+                />
+                <Bar dataKey="value" radius={[6,6,0,0]} barSize={14}>
+                  {monthlyData.map((_,i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Top Stores */}
+        <div style={{ background:"#f8fafc", borderRadius:"10px", padding:"10px", border:"1px solid #e2e8f0" }}>
+          <p style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"11px", color:"#0f766e" }}>🏪 أعلى المخازن إنفاقاً</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:"5px" }}>
+            {topStores.map((s,i) => {
+              const pct = totalValue > 0 ? Math.round((s.value / totalValue) * 100) : 0;
+              return (
+                <div key={i}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"2px" }}>
+                    <span style={{ fontSize:"9px", color:"#64748b", fontWeight:"700" }}>{pct}%</span>
+                    <span style={{ fontSize:"10px", fontWeight:"700", color:"#1e293b", maxWidth:"130px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.name}</span>
+                  </div>
+                  <div style={{ background:"#e2e8f0", borderRadius:"99px", height:"5px" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:PIE_COLORS[i % PIE_COLORS.length], borderRadius:"99px" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Top Tasks Pie */}
+        <div style={{ background:"#f8fafc", borderRadius:"10px", padding:"10px", border:"1px solid #e2e8f0" }}>
+          <p style={{ margin:"0 0 6px", fontWeight:"800", fontSize:"11px", color:"#0f766e" }}>🎯 توزيع المصروفات (Task)</p>
+          <div style={{ height:"160px" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RePieChart>
+                <Pie data={topTasks} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" paddingAngle={3}>
+                  {topTasks.map((_,i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <RechartsTooltip
+                  formatter={(v: any) => [Number(v).toLocaleString("en-US") + " ج", "القيمة"]}
+                  contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }}
+                />
+                <Legend wrapperStyle={{ fontSize:"9px", fontWeight:700 }} />
+              </RePieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React.ReactNode }) => {
-   const [stats, setStats] = useState({ purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [] });
+   const [stats, setStats] = useState({ purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [], admin_reports: [] });
    const [loading, setLoading] = useState(true);
 
    useEffect(() => {
        const fetchStats = async () => {
            setLoading(true);
-           const [p, s, v, a, b, an] = await Promise.all([
+           const [p, s, v, a, b, an, ar] = await Promise.all([
                supabase.from("admin_affairs_purchases").select("*").order('request_date', { ascending: false }),
                supabase.from("admin_affairs_summary").select("*"),
                supabase.from("admin_affairs_vegetables").select("*"),
                supabase.from("admin_affairs_assets").select("*"),
                supabase.from("budget_rows").select("*"),
-               supabase.from("assets_rows").select("*")
+               supabase.from("assets_rows").select("*"),
+               supabase.from("admin_reports").select("*")
            ]);
-           setStats({ purchases: p.data || [], summary: s.data || [], vegetables: v.data || [], assets: a.data || [], budget: b.data || [], assets_new: an.data || [] });
+           setStats({ purchases: p.data || [], summary: s.data || [], vegetables: v.data || [], assets: a.data || [], budget: b.data || [], assets_new: an.data || [], admin_reports: ar.data || [] });
            setLoading(false);
        };
        fetchStats();
@@ -673,6 +834,7 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
    const summary = stats.summary as any[];
    const assets = stats.assets as any[];
    const budgetRows = stats.budget as any[];
+   const adminReports = (stats as any).admin_reports as any[];
    const assetsNewRows = stats.assets_new as any[];
    const budgetTotalCost = budgetRows.reduce((s: number, r: any) => s + (Number(r.total_cost) || 0), 0);
    const assetsNewTotalCost = assetsNewRows.reduce((s: number, r: any) => s + (Number(r.total_cost) || 0), 0);
@@ -750,75 +912,93 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
                </table>
            </div>
 
-           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-              <div className="bg-blue-50/40 p-2 rounded-lg border border-blue-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-blue-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-blue-100/80 text-blue-600 rounded-lg"><ShoppingCart size={18} /></div>
-                     <p className="text-blue-950 font-black text-xs">طلبات الشراء</p>
+           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+              {/* طلبات الشراء */}
+              <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-blue-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-blue-100/80 text-blue-600 rounded-lg"><ShoppingCart size={16} /></div>
+                     <p className="text-blue-950 font-black text-[11px]">طلبات الشراء</p>
                  </div>
-                 <h3 className="text-lg font-black text-blue-600 my-0.5">{englishToArabic(purchases.length)}</h3>
-                 <p className="text-[10px] text-blue-900 font-black">{englishToArabic(completedPurchases)} منجز - {englishToArabic(pendingPurchases)} معلق</p>
+                 <h3 className="text-xl font-black text-blue-600 my-1">{englishToArabic(purchases.length)}</h3>
+                 <p className="text-[10px] text-blue-800 font-black">{englishToArabic(completedPurchases)} منجز · {englishToArabic(pendingPurchases)} معلق</p>
               </div>
 
-              <div className="bg-purple-50/40 p-2 rounded-lg border border-purple-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-purple-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-purple-100/80 text-purple-600 rounded-lg"><ListOrdered size={18} /></div>
-                     <p className="text-purple-950 font-black text-xs">إجمالي الطلبات</p>
+              {/* إجمالي الطلبات */}
+              <div className="bg-purple-50/40 p-3 rounded-xl border border-purple-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-purple-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-purple-100/80 text-purple-600 rounded-lg"><ListOrdered size={16} /></div>
+                     <p className="text-purple-950 font-black text-[11px]">إجمالي الطلبات</p>
                  </div>
-                 <h3 className="text-lg font-black text-purple-600 my-0.5">{englishToArabic(summary.length)}</h3>
-                 <p className="text-[10px] text-purple-900 font-black">{englishToArabic(completedSummary)} منجز - {englishToArabic(pendingSummary)} معلق</p>
+                 <h3 className="text-xl font-black text-purple-600 my-1">{englishToArabic(summary.length)}</h3>
+                 <p className="text-[10px] text-purple-800 font-black">{englishToArabic(completedSummary)} منجز · {englishToArabic(pendingSummary)} معلق</p>
               </div>
 
-              <div className="bg-green-50/40 p-2 rounded-lg border border-green-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-green-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-green-100/80 text-green-600 rounded-lg"><Leaf size={18} /></div>
-                     <p className="text-green-950 font-black text-xs">الخضار الأسبوعي</p>
+              {/* الخضار الأسبوعي */}
+              <div className="bg-green-50/40 p-3 rounded-xl border border-green-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-green-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-green-100/80 text-green-600 rounded-lg"><Leaf size={16} /></div>
+                     <p className="text-green-950 font-black text-[11px]">الخضار الأسبوعي</p>
                  </div>
-                 <h3 className="text-lg font-black text-green-600 my-0.5">{englishToArabic(vegetables.length)}</h3>
-                 <p className="text-[10px] text-green-900 font-black">{englishToArabic(completedVeg)} منجز</p>
+                 <h3 className="text-xl font-black text-green-600 my-1">{englishToArabic(vegetables.length)}</h3>
+                 <p className="text-[10px] text-green-800 font-black">{englishToArabic(completedVeg)} منجز</p>
               </div>
 
-              <div className="bg-orange-50/40 p-2 rounded-lg border border-orange-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-orange-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-orange-100/80 text-orange-600 rounded-lg"><Package size={18} /></div>
-                     <p className="text-orange-950 font-black text-xs">الأصول</p>
+              {/* الأصول */}
+              <div className="bg-orange-50/40 p-3 rounded-xl border border-orange-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-orange-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-orange-100/80 text-orange-600 rounded-lg"><Package size={16} /></div>
+                     <p className="text-orange-950 font-black text-[11px]">الأصول</p>
                  </div>
-                 <h3 className="text-lg font-black text-orange-600 my-0.5">{englishToArabic(assets.length)}</h3>
-                 <p className="text-[10px] text-orange-900 font-black">{englishToArabic(completedAssets)} إجمالي الأصول</p>
+                 <h3 className="text-xl font-black text-orange-600 my-1">{englishToArabic(assets.length)}</h3>
+                 <p className="text-[10px] text-orange-800 font-black">{englishToArabic(completedAssets)} إجمالي</p>
               </div>
 
-              <div className="bg-emerald-50/40 p-2 rounded-lg border border-emerald-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-emerald-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-emerald-100/80 text-emerald-600 rounded-lg"><CheckCircle size={18} /></div>
-                     <p className="text-emerald-950 font-black text-xs">نسبة الإنجاز</p>
+              {/* نسبة الإنجاز */}
+              <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-emerald-100/80 text-emerald-600 rounded-lg"><CheckCircle size={16} /></div>
+                     <p className="text-emerald-950 font-black text-[11px]">نسبة الإنجاز</p>
                  </div>
-                 <h3 className="text-lg font-black text-emerald-600 my-0.5">{englishToArabic(completionRate)}%</h3>
-                 <p className="text-[10px] text-emerald-900 font-black">{englishToArabic(totalCompleted)} من {englishToArabic(totalActionable)} سجل</p>
+                 <h3 className="text-xl font-black text-emerald-600 my-1">{englishToArabic(completionRate)}%</h3>
+                 <p className="text-[10px] text-emerald-800 font-black">{englishToArabic(totalCompleted)} من {englishToArabic(totalActionable)}</p>
               </div>
 
-              <div className="bg-amber-50/40 p-2 rounded-lg border border-amber-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-amber-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-amber-100/80 text-amber-600 rounded-lg"><BarChart2 size={18} /></div>
-                     <p className="text-amber-950 font-black text-xs">الموازنة</p>
+              {/* الموازنة */}
+              <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-amber-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-amber-100/80 text-amber-600 rounded-lg"><BarChart2 size={16} /></div>
+                     <p className="text-amber-950 font-black text-[11px]">الموازنة</p>
                  </div>
-                 <h3 className="text-lg font-black text-amber-600 my-0.5">{englishToArabic(budgetRows.length)}</h3>
-                 <p className="text-[10px] text-amber-900 font-black">{budgetTotalCost.toLocaleString("en-US")} ج إجمالي</p>
+                 <h3 className="text-xl font-black text-amber-600 my-1">{englishToArabic(budgetRows.length)}</h3>
+                 <p className="text-[10px] text-amber-800 font-black">{budgetTotalCost.toLocaleString("en-US")} ج</p>
               </div>
 
-              <div className="bg-violet-50/40 p-2 rounded-lg border border-violet-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-0.5 h-full bg-violet-500"></div>
-                 <div className="flex justify-between items-center mb-1">
-                     <div className="p-1.5 bg-violet-100/80 text-violet-600 rounded-lg"><Building2 size={18} /></div>
-                     <p className="text-violet-950 font-black text-xs">الأصول الجديد</p>
+              {/* الأصول الجديدة */}
+              <div className="bg-violet-50/40 p-3 rounded-xl border border-violet-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-violet-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-violet-100/80 text-violet-600 rounded-lg"><Building2 size={16} /></div>
+                     <p className="text-violet-950 font-black text-[11px]">الأصول الجديدة</p>
                  </div>
-                 <h3 className="text-lg font-black text-violet-600 my-0.5">{englishToArabic(assetsNewRows.length)}</h3>
-                 <p className="text-[10px] text-violet-900 font-black">{assetsNewTotalCost.toLocaleString("en-US")} ج إجمالي</p>
+                 <h3 className="text-xl font-black text-violet-600 my-1">{englishToArabic(assetsNewRows.length)}</h3>
+                 <p className="text-[10px] text-violet-800 font-black">{assetsNewTotalCost.toLocaleString("en-US")} ج</p>
+              </div>
+
+              {/* التقارير الإدارية */}
+              <div className="bg-teal-50/40 p-3 rounded-xl border border-teal-200 shadow-sm text-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-1 h-full bg-teal-500 rounded-r-xl"></div>
+                 <div className="flex justify-between items-center mb-1.5">
+                     <div className="p-1.5 bg-teal-100/80 text-teal-600 rounded-lg"><CalendarDays size={16} /></div>
+                     <p className="text-teal-950 font-black text-[11px]">التقارير الإدارية</p>
+                 </div>
+                 <h3 className="text-xl font-black text-teal-600 my-1">{englishToArabic(adminReports.length)}</h3>
+                 <p className="text-[10px] text-teal-800 font-black">{adminReports.reduce((s:number,r:any)=>s+(Number(r.total_value)||0),0).toLocaleString("en-US",{maximumFractionDigits:0})} ج</p>
               </div>
            </div>
 
@@ -945,6 +1125,8 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
            </div>
 
            <BudgetAssetsInsights budgetRows={budgetRows} assetsNewRows={assetsNewRows} />
+
+           <AdminReportsInsights adminReports={adminReports} />
 
            <div className="bg-white p-4 rounded-xl border shadow-sm">
                <h3 className="text-base font-black mb-3 text-purple-900 bg-purple-100/60 p-3 rounded-xl flex items-center justify-end gap-2">
@@ -1210,10 +1392,17 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
       let headerRowIndex = 0;
       const rawAll = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as any[][];
 
+      let headerFound = false;
       for (let i = 0; i < Math.min(rawAll.length, 10); i++) {
         const rowVals = rawAll[i].map((v: any) => String(v ?? "").trim());
         const matches = schemaKeys.filter(k => rowVals.includes(k)).length;
-        if (matches >= 2) { headerRowIndex = i; break; }
+        if (matches >= 2) { headerRowIndex = i; headerFound = true; break; }
+      }
+      if (!headerFound) {
+        setImportProgress({ total: 0, done: 0, errors: [{ msg: `لم يتم العثور على رأس الجدول. تأكد من أن الملف يحتوي على الأعمدة المطلوبة: ${schemaKeys.slice(0,4).join(" / ")}...` }], success: false });
+        setUploadingFile(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
       }
 
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "", range: headerRowIndex }) as any[];
@@ -2093,7 +2282,8 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
             return isNaN(n) ? 0 : n;
           };
 
-          const months_qty = MONTHS_EN.map((_, mi) => getNum(janIdx + mi));
+          const MONTH_COLS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const months_qty = MONTH_COLS.map(mk => getNum(idxOf(mk)));
           const total_qty = months_qty.reduce((s, v) => s + v, 0);
           const price = priceIdx >= 0 ? getNum(priceIdx) : 0;
           const total_cost = total_qty * price;
@@ -2600,14 +2790,15 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
           return isNaN(n) ? 0 : n;
         };
 
-        const months_qty = MONTHS_EN.map((_, mi) => getNum(janIdx + mi));
+        const ASSET_MONTH_COLS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const months_qty = ASSET_MONTH_COLS.map(mk => getNum(idxOf(mk)));
         const total_qty = months_qty.reduce((s, v) => s + v, 0);
 
-        const deptIdx = janIdx + 14;
-        const priceIdx = janIdx + 15;
-        const totalCostIdx = janIdx + 17;
+        const deptIdx = headers.findIndex(h => ["department","dept"].includes(h.toLowerCase()));
+        const priceIdx = headers.findIndex(h => h.toLowerCase() === "price");
+        const totalCostIdx = headers.findIndex(h => ["total cost","total_cost","total"].includes(h.toLowerCase()));
 
-        const dept = String(row[deptIdx] ?? "Admin").trim();
+        const dept = deptIdx >= 0 ? String(row[deptIdx] ?? "Admin").trim() : "Admin";
         const price = getNum(priceIdx);
         const total_cost = getNum(totalCostIdx) || total_qty * price;
 
@@ -3936,6 +4127,32 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
             <h3 style={{ margin:"2px 0 0", color:"#1d4ed8", fontSize:"14px", fontWeight:"900" }}>{stats.uniqueVouchers.toLocaleString("en-US")}</h3>
           </div>
         </div>
+
+        {/* شريط الشهور */}
+        <div style={{ marginTop:"8px", display:"flex", gap:"4px", flexWrap:"wrap", background:"rgba(255,255,255,0.96)", backdropFilter:"blur(8px)", padding:"8px", borderRadius:"10px", border:"1px solid #e2e8f0", boxShadow:"0 4px 12px rgba(0,0,0,0.04)" }}>
+          <button onClick={() => setMonthFilter("all")}
+            style={{ padding:"5px 10px", borderRadius:"6px", fontWeight:"800", fontSize:"11px", cursor:"pointer", border:"none",
+              background: monthFilter === "all" ? "linear-gradient(90deg,#0f766e,#0d9488)" : "#f1f5f9",
+              color: monthFilter === "all" ? "white" : "#64748b",
+              boxShadow: monthFilter === "all" ? "0 3px 10px rgba(13,148,136,0.35)" : "none"
+            }}>
+            الكل {monthFilter === "all" ? `(${records.length})` : ""}
+          </button>
+          {ARABIC_MONTHS_LABELS.map(m => {
+            const cnt = records.filter(r => r.report_month === m).length;
+            if (cnt === 0) return null;
+            return (
+              <button key={m} onClick={() => setMonthFilter(m)}
+                style={{ padding:"5px 10px", borderRadius:"6px", fontWeight:"800", fontSize:"11px", cursor:"pointer", border:"none",
+                  background: monthFilter === m ? "linear-gradient(90deg,#0f766e,#0d9488)" : "#f1f5f9",
+                  color: monthFilter === m ? "white" : "#64748b",
+                  boxShadow: monthFilter === m ? "0 3px 10px rgba(13,148,136,0.35)" : "none"
+                }}>
+                {m} <span style={{ opacity:0.75, fontSize:"10px" }}>({cnt})</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* رسائل الاستيراد */}
@@ -4004,11 +4221,7 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
           <input type="text" placeholder="بحث في الصنف، المخزن، الإذن..." value={searchText} onChange={e => setSearchText(e.target.value)}
             style={{ width:"100%", padding:"8px 28px 8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", outline:"none", fontSize:"12px", fontFamily:"Cairo,sans-serif" }} />
         </div>
-        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-          style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
-          <option value="all">جميع الشهور</option>
-          {ARABIC_MONTHS_LABELS.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
+
         <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
           style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
           <option value="all">جميع السنوات</option>
