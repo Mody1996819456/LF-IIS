@@ -90,7 +90,8 @@ const ALL_SYSTEM_TABLES = [
   "admin_affairs_managers",
   "budget_rows",
   "assets_rows",
-  "audit_log"
+  "audit_log",
+  "admin_reports"
 ];
 
 const schemas: Record<string, any> = {
@@ -2941,7 +2942,7 @@ export default function AdminAffairsSystem() {
       }
 
       // Backup all other tables
-      const otherTables = ["budget_rows", "assets_rows", "audit_log"];
+      const otherTables = ["budget_rows", "assets_rows", "audit_log", "admin_reports"];
       for (const tableName of otherTables) {
         const { data, error } = await supabase.from(tableName as any).select("*");
         if (error) {
@@ -3057,7 +3058,7 @@ export default function AdminAffairsSystem() {
           }
 
           // Delete all other tables
-          const otherTables = ["budget_rows", "assets_rows", "audit_log"];
+          const otherTables = ["budget_rows", "assets_rows", "audit_log", "admin_reports"];
           for (const tableName of otherTables) {
             const { error } = await supabase.from(tableName as any).delete().neq("id", "00000000-0000-0000-0000-000000000000");
             if (error) {
@@ -3291,6 +3292,7 @@ export default function AdminAffairsSystem() {
     { id: "assets", label: "الأصول", icon: Package },
     { id: "budget", label: "الموازنة", icon: BarChart2 },
     { id: "assets_new", label: "الأصول الجديد", icon: Building2 },
+    { id: "admin_reports", label: "التقارير الإدارية", icon: CalendarDays },
   ];
 
   if (currentUser?.role === "owner" || currentUser?.role === "admin") {
@@ -3418,6 +3420,8 @@ export default function AdminAffairsSystem() {
           <BudgetSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
         ) : activeTab === "assets_new" ? (
           <AssetsSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
+        ) : activeTab === "admin_reports" ? (
+          <AdminReportsSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
         ) : (
           <DataTableTab key={activeTab} schemaId={activeTab} supabase={supabase} currentUser={currentUser} logAction={logAction} showToast={showToast} setConfirmDialog={setConfirmDialog} />
         )}
@@ -3469,23 +3473,7 @@ export default function AdminAffairsSystem() {
   );
 }
 
-// ==================== PATCH INSTRUCTIONS ====================
-// 1. أضف هذا الـ import في أعلى الملف مع باقي الـ imports (مش محتاج تضيف حاجة جديدة - كل الـ imports موجودة)
-//
-// 2. أضف ALL_SYSTEM_TABLES entry:
-//    في مصفوفة ALL_SYSTEM_TABLES أضف: "admin_reports"
-//
-// 3. أضف tab جديد في مصفوفة tabs:
-//    { id: "admin_reports", label: "التقارير الإدارية", icon: CalendarDays },
-//
-// 4. أضف في الـ main render (بعد سطر activeTab === "assets_new"):
-//    ) : activeTab === "admin_reports" ? (
-//      <AdminReportsSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
-//
-// 5. أضف في handleBackupAll و handleDeleteAllData:
-//    "admin_reports" في قائمة otherTables
-//
-// ============================================================
+// ==================== ADMIN REPORTS INTEGRATION: COMPLETE ====================
 
 
 // ==================== ADMIN REPORTS SECTION ====================
