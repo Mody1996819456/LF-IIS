@@ -3468,3 +3468,716 @@ export default function AdminAffairsSystem() {
     </div>
   );
 }
+
+// ==================== PATCH INSTRUCTIONS ====================
+// 1. أضف هذا الـ import في أعلى الملف مع باقي الـ imports (مش محتاج تضيف حاجة جديدة - كل الـ imports موجودة)
+//
+// 2. أضف ALL_SYSTEM_TABLES entry:
+//    في مصفوفة ALL_SYSTEM_TABLES أضف: "admin_reports"
+//
+// 3. أضف tab جديد في مصفوفة tabs:
+//    { id: "admin_reports", label: "التقارير الإدارية", icon: CalendarDays },
+//
+// 4. أضف في الـ main render (بعد سطر activeTab === "assets_new"):
+//    ) : activeTab === "admin_reports" ? (
+//      <AdminReportsSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
+//
+// 5. أضف في handleBackupAll و handleDeleteAllData:
+//    "admin_reports" في قائمة otherTables
+//
+// ============================================================
+
+
+// ==================== ADMIN REPORTS SECTION ====================
+
+const ARABIC_MONTHS_LABELS = [
+  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
+  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"
+];
+
+interface AdminReport {
+  id: string;
+  report_date: string | null;
+  voucher_no: string;
+  item_code: string;
+  store_name: string;
+  item_name: string;
+  unit: string;
+  quantity: number;
+  cost_center: string;
+  cost_center_description: string;
+  segment: string;
+  task: string;
+  task_description: string;
+  notes: string;
+  price: number;
+  total_value: number;
+  report_month: string;
+  report_year: string;
+}
+
+const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: any) => {
+  const isViewer = currentUser?.role === "viewer";
+  const [records, setRecords] = useState<AdminReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingRow, setEditingRow] = useState<AdminReport | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [importProgress, setImportProgress] = useState<any>(null);
+  const [searchText, setSearchText] = useState("");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
+  const [storeFilter, setStoreFilter] = useState("all");
+  const [taskFilter, setTaskFilter] = useState("all");
+  const [form, setForm] = useState<any>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
+  const headerPadTop = isMobile ? 40 : 12;
+
+  const TABLE = "admin_reports";
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from(TABLE).select("*").order("report_date", { ascending: false });
+      if (error) throw error;
+      setRecords(data || []);
+    } catch (e: any) {
+      showToast("خطأ في تحميل بيانات التقارير: " + e.message, "error");
+    }
+    setLoading(false);
+  }, [supabase, showToast]);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // فلترة
+  const filtered = useMemo(() => {
+    let r = [...records];
+    if (searchText) {
+      const s = searchText.toLowerCase();
+      r = r.filter(x =>
+        x.item_name?.toLowerCase().includes(s) ||
+        x.store_name?.toLowerCase().includes(s) ||
+        x.voucher_no?.toLowerCase().includes(s) ||
+        x.item_code?.toLowerCase().includes(s) ||
+        x.cost_center_description?.toLowerCase().includes(s) ||
+        x.task_description?.toLowerCase().includes(s)
+      );
+    }
+    if (monthFilter !== "all") r = r.filter(x => x.report_month === monthFilter);
+    if (yearFilter !== "all") r = r.filter(x => x.report_year === yearFilter);
+    if (storeFilter !== "all") r = r.filter(x => x.store_name === storeFilter);
+    if (taskFilter !== "all") r = r.filter(x => x.task === taskFilter);
+    return r;
+  }, [records, searchText, monthFilter, yearFilter, storeFilter, taskFilter]);
+
+  // إحصائيات
+  const stats = useMemo(() => {
+    const totalValue = filtered.reduce((s, r) => s + (Number(r.total_value) || 0), 0);
+    const totalQty = filtered.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+    const uniqueItems = new Set(filtered.map(r => r.item_name)).size;
+    const uniqueVouchers = new Set(filtered.map(r => r.voucher_no)).size;
+    return { totalValue, totalQty, uniqueItems, uniqueVouchers, count: filtered.length };
+  }, [filtered]);
+
+  // بيانات الرسم البياني - المصروفات حسب المخزن
+  const storeChartData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filtered.forEach(r => {
+      const k = r.store_name || "غير محدد";
+      m[k] = (m[k] || 0) + (Number(r.total_value) || 0);
+    });
+    return Object.entries(m).map(([name, value]) => ({ name, value: Math.round(value) }))
+      .sort((a, b) => b.value - a.value).slice(0, 8);
+  }, [filtered]);
+
+  // بيانات الرسم - المصروفات حسب Task
+  const taskChartData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filtered.forEach(r => {
+      const k = r.task_description || r.task || "غير محدد";
+      m[k] = (m[k] || 0) + (Number(r.total_value) || 0);
+    });
+    return Object.entries(m).map(([name, value]) => ({ name: name.length > 16 ? name.slice(0,14)+"…" : name, value: Math.round(value) }))
+      .sort((a, b) => b.value - a.value).slice(0, 6);
+  }, [filtered]);
+
+  // قوائم الفلترة
+  const storeOptions = useMemo(() => [...new Set(records.map(r => r.store_name).filter(Boolean))].sort(), [records]);
+  const taskOptions = useMemo(() => [...new Set(records.map(r => r.task).filter(Boolean))].sort(), [records]);
+  const yearOptions = useMemo(() => [...new Set(records.map(r => r.report_year).filter(Boolean))].sort().reverse(), [records]);
+
+  const openAdd = () => {
+    setForm({
+      report_date: "", voucher_no: "", item_code: "", store_name: "",
+      item_name: "", unit: "عدد", quantity: 0, cost_center: "",
+      cost_center_description: "", segment: "", task: "", task_description: "",
+      notes: "", price: 0, total_value: 0,
+      report_month: ARABIC_MONTHS_LABELS[new Date().getMonth()],
+      report_year: new Date().getFullYear().toString()
+    });
+    setEditingRow(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (row: AdminReport) => {
+    setForm({ ...row });
+    setEditingRow(row);
+    setShowForm(true);
+  };
+
+  const save = async () => {
+    if (isViewer) return showToast("ليس لديك صلاحية", "error");
+    if (!form.item_name?.trim()) return showToast("اسم الصنف مطلوب", "error");
+    setSaving(true);
+    try {
+      const data = {
+        ...form,
+        quantity: Number(form.quantity) || 0,
+        price: Number(form.price) || 0,
+        total_value: Number(form.total_value) || (Number(form.quantity) * Number(form.price)),
+        updated_at: new Date().toISOString()
+      };
+      if (!editingRow) {
+        delete data.id;
+        const { error } = await supabase.from(TABLE).insert([{ ...data, created_by: currentUser?.id || null, created_at: new Date().toISOString() }]);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from(TABLE).update(data).eq("id", editingRow.id);
+        if (error) throw error;
+      }
+      setShowForm(false);
+      await fetchAll();
+      showToast(editingRow ? "تم التعديل بنجاح" : "تمت الإضافة بنجاح", "success");
+    } catch (e: any) {
+      showToast("خطأ: " + e.message, "error");
+    }
+    setSaving(false);
+  };
+
+  const deleteRow = (id: string) => {
+    if (isViewer) return showToast("ليس لديك صلاحية", "error");
+    setConfirmDialog({
+      title: "تأكيد الحذف",
+      msg: "هل تريد حذف هذا السجل؟",
+      onConfirm: async () => {
+        const { error } = await supabase.from(TABLE).delete().eq("id", id);
+        if (error) { showToast("خطأ في الحذف: " + error.message, "error"); return; }
+        await fetchAll();
+        showToast("تم الحذف بنجاح", "success");
+      }
+    });
+  };
+
+  const deleteAll = () => {
+    if (isViewer) return showToast("ليس لديك صلاحية", "error");
+    setConfirmDialog({
+      title: "حذف جميع التقارير",
+      msg: "هل تريد حذف جميع بيانات التقارير الإدارية؟ لا يمكن التراجع عن هذا الإجراء!",
+      requirePassword: true,
+      onConfirm: async () => {
+        for (const r of records) {
+          await supabase.from(TABLE).delete().eq("id", r.id);
+        }
+        await fetchAll();
+        showToast("تم حذف جميع البيانات", "success");
+      }
+    });
+  };
+
+  // استيراد من Excel
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setImportProgress({ total: 0, done: 0, errors: [], success: false });
+
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { cellDates: true });
+
+      // نقرأ كل الشيتات
+      const toInsert: any[] = [];
+      const errors: any[] = [];
+
+      // نسأل المستخدم عن الشهر والسنة من اسم الملف
+      const fileName = file.name;
+      let detectedMonth = "";
+      ARABIC_MONTHS_LABELS.forEach(m => {
+        if (fileName.includes(m)) detectedMonth = m;
+      });
+      const monthMap: Record<string, string> = {
+        "يناير": "يناير", "فبراير": "فبراير", "مارس": "مارس", "أبريل": "أبريل",
+        "ابريل": "أبريل", "مايو": "مايو", "يونيو": "يونيو", "يوليو": "يوليو",
+        "أغسطس": "أغسطس", "اغسطس": "أغسطس", "سبتمبر": "سبتمبر", "أكتوبر": "أكتوبر",
+        "اكتوبر": "أكتوبر", "نوفمبر": "نوفمبر", "ديسمبر": "ديسمبر"
+      };
+      // تحقق من اسم الملف
+      Object.keys(monthMap).forEach(k => {
+        if (fileName.includes(k)) detectedMonth = monthMap[k];
+      });
+      if (!detectedMonth) detectedMonth = ARABIC_MONTHS_LABELS[new Date().getMonth()];
+
+      const yearMatch = fileName.match(/20\d{2}/);
+      const detectedYear = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
+
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        if (!ws) continue;
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as any[][];
+
+        // البحث عن صف الهيدر
+        let headerIdx = -1;
+        const headerKeywords = ["اسم الصنف", "Item", "كمية الصرف", "السعر", "القيمة"];
+        for (let i = 0; i < Math.min(raw.length, 10); i++) {
+          const rowVals = raw[i].map((v: any) => String(v ?? "").trim());
+          const matches = headerKeywords.filter(k => rowVals.some(rv => rv.includes(k))).length;
+          if (matches >= 2) { headerIdx = i; break; }
+        }
+        if (headerIdx < 0) continue;
+
+        const headers = (raw[headerIdx] || []).map((h: any) => String(h ?? "").trim());
+
+        const colIdx = (names: string[]) => {
+          for (const n of names) {
+            const i = headers.findIndex(h => h.includes(n) || n.includes(h));
+            if (i >= 0) return i;
+          }
+          return -1;
+        };
+
+        const dateIdx = colIdx(["التاريخ", "Date"]);
+        const voucherIdx = colIdx(["رقم اذن", "رقم الاذن", "Voucher"]);
+        const itemCodeIdx = colIdx(["كود الصنف", "Item code", "الكود"]);
+        const storeIdx = colIdx(["اسم المخزن", "المخزن", "Store"]);
+        const itemNameIdx = colIdx(["اسم الصنف", "الصنف", "Item"]);
+        const unitIdx = colIdx(["الوحدة", "Unit"]);
+        const qtyIdx = colIdx(["كمية الصرف", "الكمية", "Qty", "Quantity"]);
+        const costCenterIdx = colIdx(["Cost center", "cost center"]);
+        const costCenterDescIdx = colIdx(["Cost center Description", "Description"]);
+        const segmentIdx = colIdx(["Segment"]);
+        const taskIdx = colIdx(["Task"]);
+        const taskDescIdx = colIdx(["Task Description"]);
+        const notesIdx = colIdx(["ملاحظات", "Notes"]);
+        const priceIdx = colIdx(["السعر", "Price"]);
+        const valueIdx = colIdx(["القيمة", "Value", "Total"]);
+
+        for (let i = headerIdx + 1; i < raw.length; i++) {
+          const row = raw[i];
+          if (!row) continue;
+
+          const itemVal = String(row[itemNameIdx] ?? "").trim();
+          if (!itemVal || itemVal === "اسم الصنف" || itemVal === "Item") continue;
+
+          const getStr = (idx: number) => idx >= 0 ? String(row[idx] ?? "").trim() : "";
+          const getNum = (idx: number) => {
+            if (idx < 0 || row[idx] == null) return 0;
+            const n = parseFloat(arabicToEnglish(String(row[idx])));
+            return isNaN(n) ? 0 : n;
+          };
+
+          // تحويل التاريخ
+          let reportDate: string | null = null;
+          if (dateIdx >= 0 && row[dateIdx] != null) {
+            reportDate = parseImportDate(row[dateIdx]);
+          }
+
+          const qty = getNum(qtyIdx);
+          const price = getNum(priceIdx);
+          const totalValue = getNum(valueIdx) || (qty * price);
+
+          toInsert.push({
+            report_date: reportDate,
+            voucher_no: getStr(voucherIdx),
+            item_code: getStr(itemCodeIdx),
+            store_name: getStr(storeIdx),
+            item_name: itemVal,
+            unit: getStr(unitIdx) || "عدد",
+            quantity: qty,
+            cost_center: getStr(costCenterIdx),
+            cost_center_description: getStr(costCenterDescIdx),
+            segment: getStr(segmentIdx),
+            task: getStr(taskIdx),
+            task_description: getStr(taskDescIdx),
+            notes: getStr(notesIdx),
+            price,
+            total_value: totalValue,
+            report_month: detectedMonth,
+            report_year: detectedYear,
+            created_by: currentUser?.id || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+      }
+
+      if (toInsert.length === 0) {
+        setImportProgress({ total: 0, done: 0, errors: [{ msg: "لم يتم العثور على بيانات صالحة. تأكد من أن الملف يحتوي على الأعمدة المطلوبة." }], success: false });
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      const BATCH = 50;
+      let done = 0;
+      for (let i = 0; i < toInsert.length; i += BATCH) {
+        const { error } = await supabase.from(TABLE).insert(toInsert.slice(i, i + BATCH));
+        if (error) {
+          errors.push({ msg: `دفعة ${Math.floor(i / BATCH) + 1}: ${error.message}` });
+          console.error("Insert error:", error);
+        }
+        done += Math.min(BATCH, toInsert.length - i);
+        setImportProgress({ total: toInsert.length, done, errors, success: false });
+      }
+
+      setImportProgress({
+        total: toInsert.length, done,
+        errors,
+        success: errors.length === 0,
+        month: detectedMonth, year: detectedYear
+      });
+      await fetchAll();
+    } catch (e: any) {
+      console.error("Import error:", e);
+      setImportProgress({ total: 0, done: 0, errors: [{ msg: e.message }], success: false });
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // تصدير Excel
+  const exportToExcel = () => {
+    if (!filtered.length) return showToast("لا توجد بيانات للتصدير", "error");
+    const exportData = filtered.map(r => ({
+      "التاريخ": r.report_date ? String(r.report_date).split("T")[0] : "",
+      "رقم اذن الصرف": r.voucher_no,
+      "كود الصنف": r.item_code,
+      "اسم المخزن": r.store_name,
+      "اسم الصنف": r.item_name,
+      "الوحدة": r.unit,
+      "كمية الصرف": r.quantity,
+      "Cost center": r.cost_center,
+      "Cost center Description": r.cost_center_description,
+      "Segment": r.segment,
+      "Task": r.task,
+      "Task Description": r.task_description,
+      "ملاحظات": r.notes,
+      "السعر": r.price,
+      "القيمة": r.total_value,
+      "الشهر": r.report_month,
+      "السنة": r.report_year
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "التقارير الإدارية");
+    XLSX.writeFile(wb, `التقارير_الإدارية_${monthFilter !== "all" ? monthFilter : "الكل"}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    showToast("تم التصدير بنجاح", "success");
+  };
+
+  const downloadTemplate = () => {
+    const templateData = [{
+      "التاريخ": "2025-04-01",
+      "رقم اذن الصرف": "36698",
+      "كود الصنف": "2011695",
+      "اسم المخزن": "ميكانيكا",
+      "اسم الصنف": "مثال صنف",
+      "الوحدة": "عدد",
+      "كمية الصرف": 1,
+      "Cost center": "gen",
+      "Cost center Description": "General",
+      "Segment": "General",
+      "Task": "210",
+      "Task Description": "اصلاحات ادارى",
+      "ملاحظات": "",
+      "السعر": 20.52,
+      "القيمة": 20.52
+    }];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "المصروفات");
+    XLSX.writeFile(wb, "نموذج_التقارير_الإدارية.xlsx");
+  };
+
+  const PIE_COLORS = ["#6366f1","#f59e0b","#10b981","#f43f5e","#8b5cf6","#14b8a6","#3b82f6","#ec4899"];
+
+  return (
+    <div className="space-y-3" dir="rtl">
+      {/* ======== الهيدر ======== */}
+      <div style={{ position:"sticky", top: -headerPadTop, zIndex:50, background:"rgba(248,250,252,0.98)", backdropFilter:"blur(12px)", borderBottom:"1px solid rgba(226,232,240,0.9)", boxShadow:"0 10px 30px -12px rgba(0,0,0,0.08)", paddingTop: headerPadTop, paddingBottom:"4px", marginLeft:"-4px", marginRight:"-4px", paddingLeft:"4px", paddingRight:"4px" }}>
+        <div className="bg-gradient-to-l from-cyan-700 to-teal-800 text-white px-4 py-3 rounded-xl flex items-center justify-between flex-wrap gap-2" style={{ boxShadow:"0 10px 30px -12px rgba(13,148,136,0.5)" }}>
+          <div>
+            <h2 className="text-xl font-black flex items-center gap-2">📋 التقارير الإدارية</h2>
+            <p className="text-cyan-100 text-xs font-bold mt-0.5">تقارير المصروفات الشهرية لمزارع لينة</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={downloadTemplate}
+              style={{ display:"flex", alignItems:"center", gap:"5px", background:"rgba(255,255,255,0.18)", color:"white", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"8px", padding:"6px 10px", fontWeight:"800", cursor:"pointer", fontSize:"12px" }}>
+              <FileDown size={13} /> نموذج Excel
+            </button>
+            {!isViewer && (
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                style={{ display:"flex", alignItems:"center", gap:"5px", background:"rgba(255,255,255,0.18)", color:"white", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"8px", padding:"6px 10px", fontWeight:"800", cursor:"pointer", fontSize:"12px" }}>
+                <Upload size={13} /> {uploading ? "جاري..." : "استيراد Excel"}
+              </button>
+            )}
+            <button onClick={exportToExcel}
+              style={{ display:"flex", alignItems:"center", gap:"5px", background:"rgba(255,255,255,0.9)", color:"#134e4a", border:"none", borderRadius:"8px", padding:"6px 10px", fontWeight:"800", cursor:"pointer", fontSize:"12px" }}>
+              <Download size={13} /> تصدير
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleFileUpload} style={{ display:"none" }} />
+          </div>
+        </div>
+
+        {/* بطاقات الإحصاء */}
+        <div style={{ marginTop:"6px", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"6px" }}>
+          <div style={{ background:"linear-gradient(135deg,#f0fdfa,#ccfbf1)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #5eead4", textAlign:"center" }}>
+            <p style={{ margin:0, color:"#0f766e", fontWeight:"800", fontSize:"9px" }}>إجمالي السجلات</p>
+            <h3 style={{ margin:"2px 0 0", color:"#0d9488", fontSize:"14px", fontWeight:"900" }}>{stats.count.toLocaleString("en-US")}</h3>
+          </div>
+          <div style={{ background:"linear-gradient(135deg,#fffbeb,#fef3c7)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #fcd34d", textAlign:"center" }}>
+            <p style={{ margin:0, color:"#92400e", fontWeight:"800", fontSize:"9px" }}>إجمالي القيمة</p>
+            <h3 style={{ margin:"2px 0 0", color:"#d97706", fontSize:"13px", fontWeight:"900" }}>{stats.totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })} ج</h3>
+          </div>
+          <div style={{ background:"linear-gradient(135deg,#f5f3ff,#ede9fe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #c4b5fd", textAlign:"center" }}>
+            <p style={{ margin:0, color:"#4c1d95", fontWeight:"800", fontSize:"9px" }}>عدد الأصناف</p>
+            <h3 style={{ margin:"2px 0 0", color:"#6d28d9", fontSize:"14px", fontWeight:"900" }}>{stats.uniqueItems.toLocaleString("en-US")}</h3>
+          </div>
+          <div style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #93c5fd", textAlign:"center" }}>
+            <p style={{ margin:0, color:"#1e3a8a", fontWeight:"800", fontSize:"9px" }}>عدد أذونات الصرف</p>
+            <h3 style={{ margin:"2px 0 0", color:"#1d4ed8", fontSize:"14px", fontWeight:"900" }}>{stats.uniqueVouchers.toLocaleString("en-US")}</h3>
+          </div>
+        </div>
+      </div>
+
+      {/* رسائل الاستيراد */}
+      {importProgress && (
+        <div style={{ background:"white", borderRadius:"10px", padding:"12px", border:`2px solid ${importProgress.success ? "#22c55e" : "#3b82f6"}` }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px" }}>
+            <p style={{ margin:0, fontWeight:"900", fontSize:"13px" }}>
+              {importProgress.success
+                ? `✅ اكتمل الاستيراد — تم رفع ${importProgress.done} سجل لشهر ${importProgress.month || ""} ${importProgress.year || ""}`
+                : "📊 جاري الاستيراد..."}
+            </p>
+            <button onClick={() => setImportProgress(null)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"16px" }}>✕</button>
+          </div>
+          <div style={{ background:"#e2e8f0", borderRadius:"99px", height:"6px", overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${importProgress.total ? (importProgress.done/importProgress.total)*100 : 0}%`, background: importProgress.success ? "#22c55e" : "#4f46e5", borderRadius:"99px", transition:"width 0.3s" }} />
+          </div>
+          <p style={{ margin:"4px 0 0", fontSize:"11px", color:"#64748b", fontWeight:"700" }}>تم: {importProgress.done} من {importProgress.total}</p>
+          {importProgress.errors?.length > 0 && (
+            <div style={{ background:"#fef9ec", borderRadius:"6px", padding:"8px", marginTop:"6px", fontSize:"11px", color:"#78350f", maxHeight:"100px", overflowY:"auto" }}>
+              {importProgress.errors.map((e: any, i: number) => <div key={i}>• {e.msg}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* رسوم بيانية */}
+      {filtered.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div style={{ background:"white", borderRadius:"12px", padding:"12px", border:"1px solid #e2e8f0" }}>
+            <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#0f766e" }}>📊 المصروفات حسب المخزن</h3>
+            <div style={{ height:"180px" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={storeChartData} margin={{ top:0, right:0, left:-15, bottom:0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" tick={{ fontSize:9, fill:"#64748b" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize:9, fill:"#64748b" }} axisLine={false} tickLine={false} />
+                  <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString("en-US") + " ج", "القيمة"]} contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }} />
+                  <Bar dataKey="value" radius={[6,6,0,0]} barSize={20}>
+                    {storeChartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div style={{ background:"white", borderRadius:"12px", padding:"12px", border:"1px solid #e2e8f0" }}>
+            <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#0f766e" }}>🎯 المصروفات حسب Task</h3>
+            <div style={{ height:"180px" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie data={taskChartData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>
+                    {taskChartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString("en-US") + " ج", "القيمة"]} contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }} />
+                  <Legend wrapperStyle={{ fontSize:"10px", fontWeight:700 }} />
+                </RePieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* شريط الفلترة */}
+      <div style={{ background:"white", borderRadius:"10px", padding:"10px 12px", border:"1px solid #e2e8f0", display:"flex", gap:"8px", flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ flex:1, minWidth:"180px", position:"relative" }}>
+          <Search size={14} style={{ position:"absolute", right:"8px", top:"50%", transform:"translateY(-50%)", color:"#94a3b8" }} />
+          <input type="text" placeholder="بحث في الصنف، المخزن، الإذن..." value={searchText} onChange={e => setSearchText(e.target.value)}
+            style={{ width:"100%", padding:"8px 28px 8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", outline:"none", fontSize:"12px", fontFamily:"Cairo,sans-serif" }} />
+        </div>
+        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+          style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
+          <option value="all">جميع الشهور</option>
+          {ARABIC_MONTHS_LABELS.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+          style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
+          <option value="all">جميع السنوات</option>
+          {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select value={storeFilter} onChange={e => setStoreFilter(e.target.value)}
+          style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
+          <option value="all">جميع المخازن</option>
+          {storeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={taskFilter} onChange={e => setTaskFilter(e.target.value)}
+          style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
+          <option value="all">جميع الـ Tasks</option>
+          {taskOptions.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        {!isViewer && (
+          <>
+            <button onClick={openAdd}
+              style={{ display:"flex", alignItems:"center", gap:"5px", background:"#0d9488", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", fontWeight:"800", cursor:"pointer", fontSize:"12px" }}>
+              <Plus size={14} /> إضافة سجل
+            </button>
+            <button onClick={deleteAll}
+              style={{ display:"flex", alignItems:"center", gap:"5px", background:"#fee2e2", color:"#dc2626", border:"none", borderRadius:"8px", padding:"8px 12px", fontWeight:"800", cursor:"pointer", fontSize:"12px" }}>
+              <Trash2 size={14} /> حذف الكل
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* الجدول */}
+      {loading ? (
+        <div style={{ textAlign:"center", padding:"40px" }}><Loader2 className="animate-spin text-teal-500" size={32} /></div>
+      ) : (
+        <div style={{ background:"white", borderRadius:"12px", border:"1px solid #e2e8f0", overflow:"auto", maxHeight:"calc(100vh - 300px)", boxShadow:"0 2px 10px rgba(0,0,0,0.03)" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px", minWidth:"1200px" }}>
+            <thead style={{ background:"linear-gradient(90deg,#0f766e,#0d9488)", color:"white", position:"sticky", top:0, zIndex:5 }}>
+              <tr>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", whiteSpace:"nowrap" }}>التاريخ</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", whiteSpace:"nowrap" }}>رقم الإذن</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", whiteSpace:"nowrap" }}>الكود</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>المخزن</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>اسم الصنف</th>
+                <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>الوحدة</th>
+                <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>الكمية</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>Cost Center</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>Task</th>
+                <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>Task Description</th>
+                <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>السعر</th>
+                <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", background:"rgba(0,0,0,0.15)" }}>القيمة</th>
+                <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>الشهر</th>
+                {!isViewer && <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px" }}>إجراءات</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={14} style={{ textAlign:"center", padding:"40px", color:"#94a3b8", fontWeight:"700", fontSize:"14px" }}>لا توجد بيانات — قم برفع ملف التقرير الشهري أو الإضافة اليدوية</td></tr>
+              ) : filtered.map((row, i) => {
+                const bg = i % 2 === 0 ? "white" : "#f0fdfa";
+                return (
+                  <tr key={row.id} style={{ background: bg, transition:"background 0.15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#ccfbf1")}
+                    onMouseLeave={e => (e.currentTarget.style.background = bg)}>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#334155", fontSize:"11px", whiteSpace:"nowrap" }}>
+                      {row.report_date ? formatDate(row.report_date) : "-"}
+                    </td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#6366f1", fontWeight:"700", fontSize:"11px", fontFamily:"monospace" }}>{row.voucher_no || "-"}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#64748b", fontSize:"11px", fontFamily:"monospace" }}>{row.item_code || "-"}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", fontSize:"11px" }}>
+                      <span style={{ background:"#f0f9ff", color:"#0369a1", padding:"2px 6px", borderRadius:"12px", fontSize:"10px", fontWeight:"700" }}>{row.store_name || "-"}</span>
+                    </td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", fontWeight:"700", color:"#1e293b", fontSize:"12px", maxWidth:"200px" }}>{row.item_name}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center", color:"#64748b", fontSize:"11px" }}>{row.unit || "-"}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center", fontWeight:"700", color:"#0d9488", fontSize:"12px" }}>{Number(row.quantity) || "-"}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#64748b", fontSize:"10px" }}>{row.cost_center || "-"}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#64748b", fontSize:"11px" }}>
+                      <span style={{ background:"#fef3c7", color:"#92400e", padding:"2px 5px", borderRadius:"8px", fontSize:"10px", fontWeight:"700" }}>{row.task || "-"}</span>
+                    </td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#475569", fontSize:"11px", maxWidth:"160px" }}>{row.task_description || "-"}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center", color:"#15803d", fontWeight:"700", fontSize:"11px" }}>{Number(row.price)?.toLocaleString("en-US", { maximumFractionDigits:2 })}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center", fontWeight:"900", color:"#1d4ed8", fontSize:"12px", background:"#eff6ff" }}>{Number(row.total_value)?.toLocaleString("en-US", { maximumFractionDigits:2 })}</td>
+                    <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center" }}>
+                      <span style={{ background:"#f0fdfa", color:"#0f766e", padding:"2px 8px", borderRadius:"12px", fontSize:"10px", fontWeight:"700", whiteSpace:"nowrap" }}>{row.report_month} {row.report_year}</span>
+                    </td>
+                    {!isViewer && (
+                      <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center" }}>
+                        <div style={{ display:"flex", gap:"4px", justifyContent:"center" }}>
+                          <button onClick={() => openEdit(row)} style={{ padding:"4px 8px", background:"#eff6ff", color:"#0284c7", border:"none", borderRadius:"6px", cursor:"pointer", fontSize:"12px" }}>✏️</button>
+                          <button onClick={() => deleteRow(row.id)} style={{ padding:"4px 8px", background:"#fff1f2", color:"#dc2626", border:"none", borderRadius:"6px", cursor:"pointer", fontSize:"12px" }}>🗑️</button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* نموذج الإضافة/التعديل */}
+      {showForm && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px", zIndex:9999 }}
+          onClick={() => setShowForm(false)}>
+          <div style={{ background:"white", borderRadius:"16px", width:"100%", maxWidth:"760px", padding:"20px", boxShadow:"0 32px 80px rgba(0,0,0,0.25)", maxHeight:"90vh", overflowY:"auto" }}
+            dir="rtl" onClick={e => e.stopPropagation()}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px" }}>
+              <h3 style={{ margin:0, fontWeight:"900", fontSize:"16px", color:"#0f766e" }}>{editingRow ? "✏️ تعديل سجل" : "➕ إضافة سجل جديد"}</h3>
+              <button onClick={() => setShowForm(false)} style={{ border:"1px solid #e2e8f0", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", background:"white" }}>✕</button>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px", marginBottom:"12px" }}>
+              {[
+                { key:"report_date", label:"التاريخ", type:"date" },
+                { key:"voucher_no", label:"رقم اذن الصرف", type:"text" },
+                { key:"item_code", label:"كود الصنف", type:"text" },
+                { key:"store_name", label:"اسم المخزن", type:"text" },
+                { key:"item_name", label:"اسم الصنف *", type:"text", span:2 },
+                { key:"unit", label:"الوحدة", type:"text" },
+                { key:"quantity", label:"كمية الصرف", type:"number" },
+                { key:"price", label:"السعر", type:"number" },
+                { key:"total_value", label:"القيمة", type:"number" },
+                { key:"cost_center", label:"Cost Center", type:"text" },
+                { key:"cost_center_description", label:"Cost Center Description", type:"text", span:2 },
+                { key:"segment", label:"Segment", type:"text" },
+                { key:"task", label:"Task", type:"text" },
+                { key:"task_description", label:"Task Description", type:"text" },
+                { key:"notes", label:"ملاحظات", type:"text", span:3 },
+              ].map((f: any) => (
+                <div key={f.key} style={{ gridColumn: f.span ? `span ${f.span}` : "auto" }}>
+                  <label style={{ fontSize:"11px", fontWeight:"700", color:"#64748b", display:"block", marginBottom:"3px" }}>{f.label}</label>
+                  <input type={f.type} value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: f.type === "number" ? e.target.value : e.target.value })}
+                    style={{ width:"100%", padding:"8px", border:"1px solid #e2e8f0", borderRadius:"6px", outline:"none", fontFamily:"Cairo,sans-serif", boxSizing:"border-box", fontSize:"12px" }} />
+                </div>
+              ))}
+              <div>
+                <label style={{ fontSize:"11px", fontWeight:"700", color:"#64748b", display:"block", marginBottom:"3px" }}>الشهر</label>
+                <select value={form.report_month || ""} onChange={e => setForm({ ...form, report_month: e.target.value })}
+                  style={{ width:"100%", padding:"8px", border:"1px solid #e2e8f0", borderRadius:"6px", outline:"none", fontFamily:"Cairo,sans-serif", boxSizing:"border-box", fontSize:"12px" }}>
+                  {ARABIC_MONTHS_LABELS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize:"11px", fontWeight:"700", color:"#64748b", display:"block", marginBottom:"3px" }}>السنة</label>
+                <select value={form.report_year || ""} onChange={e => setForm({ ...form, report_year: e.target.value })}
+                  style={{ width:"100%", padding:"8px", border:"1px solid #e2e8f0", borderRadius:"6px", outline:"none", fontFamily:"Cairo,sans-serif", boxSizing:"border-box", fontSize:"12px" }}>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginTop:"12px" }}>
+              <button onClick={() => setShowForm(false)} style={{ padding:"10px", background:"#f1f5f9", border:"none", borderRadius:"6px", fontWeight:"900", cursor:"pointer", fontFamily:"Cairo,sans-serif", fontSize:"13px" }}>إلغاء</button>
+              <button onClick={save} disabled={saving} style={{ padding:"10px", background:"#0d9488", color:"white", border:"none", borderRadius:"6px", fontWeight:"900", cursor:"pointer", fontFamily:"Cairo,sans-serif", fontSize:"13px" }}>
+                {saving ? "جاري..." : "💾 حفظ"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
