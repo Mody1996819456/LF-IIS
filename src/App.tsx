@@ -855,11 +855,12 @@ const fetchAllPages = async (makeQuery: () => any): Promise<any[]> => {
 };
 // ──────────────────────────────────────────────────────────────────────────────
 
-const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React.ReactNode }) => {
-   const [stats, setStats] = useState({ purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [], admin_reports: [] });
-   const [loading, setLoading] = useState(true);
+const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supabase: any, systemMenu?: React.ReactNode, dashboardCache?: React.MutableRefObject<any> }) => {
+   const [stats, setStats] = useState(() => dashboardCache?.current || { purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [], admin_reports: [] });
+   const [loading, setLoading] = useState(!dashboardCache?.current);
 
    useEffect(() => {
+       if (dashboardCache?.current) return; // Use cached data — skip network call
        const fetchStats = async () => {
            setLoading(true);
            try {
@@ -872,7 +873,9 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
                fetchAllPages(() => supabase.from("assets_rows").select("id,item_name,department,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,price,total_cost")),
                fetchAllPages(() => supabase.from("admin_reports").select("id,report_month,report_year,store_name,task,task_description,total_value"))
            ]);
-           setStats({ purchases: purchases_d, summary: summary_d, vegetables: vegetables_d, assets: assets_d, budget: budget_d, assets_new: assetsNew_d, admin_reports: adminRep_d });
+           const _ds = { purchases: purchases_d, summary: summary_d, vegetables: vegetables_d, assets: assets_d, budget: budget_d, assets_new: assetsNew_d, admin_reports: adminRep_d };
+           if (dashboardCache) dashboardCache.current = _ds;
+           setStats(_ds);
            } catch (err: any) {
              console.error("Dashboard fetch error:", err);
            } finally {
@@ -1217,7 +1220,9 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
    );
 };
 
-const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, setConfirmDialog }: any) => {
+);
+
+const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, showToast, setConfirmDialog, tabDataCache }: any) => {
   const currentSchema = schemas[schemaId];
   const isViewer = currentUser?.role === "viewer";
   const [records, setRecords] = useState<any[]>([]);
@@ -1229,7 +1234,16 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
   const [importProgress, setImportProgress] = useState<any>(null);
   const [showImportGuide, setShowImportGuide] = useState(false);
 
+  // Search input value (immediate) + debounced value (used for filtering)
   const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchDebounceRef = useRef<any>(null);
+  const handleSearchChange = (val: string) => {
+    setSearchText(val);
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => { setDebouncedSearch(val); setPage(0); }, 300);
+  };
+
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
@@ -1239,30 +1253,45 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
   const [sortDropdown, setSortDropdown] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  // Pagination
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+
   const [form, setForm] = useState<any>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (forceRefresh = false) => {
+    // Use cached data if available (skip network call on tab switch)
+    if (!forceRefresh && tabDataCache?.current?.[schemaId]?.length > 0) {
+      setRecords(tabDataCache.current[schemaId]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await fetchAllPages(() => supabase.from(currentSchema.tableName).select("*"));
+      if (tabDataCache?.current) tabDataCache.current[schemaId] = data;
       setRecords(data);
     } catch (err: any) {
       console.error(err);
       showToast("خطأ في الاتصال: " + err?.message, "error");
     }
     setLoading(false);
-  }, [supabase, currentSchema.tableName, showToast]);
+  }, [supabase, currentSchema.tableName, showToast, schemaId, tabDataCache]);
 
-  useEffect(() => { 
-    fetchRecords(); 
-    setSearchText(""); setSelectedIds([]);
-  }, [schemaId, fetchRecords]);
+  useEffect(() => {
+    setPage(0);
+    setSearchText(""); setDebouncedSearch(""); setSelectedIds([]);
+    fetchRecords();
+  }, [schemaId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [departmentFilter, statusFilter, yearFilter, sortField, sortDir]);
 
   const filtered = useMemo(() => {
     let result = [...records];
-    if (searchText) {
-      const s = searchText.toLowerCase();
+    if (debouncedSearch) {
+      const s = debouncedSearch.toLowerCase();
       result = result.filter(r => Object.values(r).some(v => v && String(v).toLowerCase().includes(s)));
     }
     if (departmentFilter !== "all") result = result.filter(r => r.requesting_department === departmentFilter);
@@ -1279,7 +1308,14 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
       return 0;
     });
     return result;
-  }, [records, searchText, departmentFilter, statusFilter, yearFilter, sortField, sortDir]);
+  }, [records, debouncedSearch, departmentFilter, statusFilter, yearFilter, sortField, sortDir]);
+
+  // ── Pagination: only render 50 rows at a time ──────────────────
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pagedRows = useMemo(
+    () => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [filtered, page]
+  );
 
   const openAdd = () => {
     setEditingRecord(null);
@@ -1359,8 +1395,10 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
         }
         await logAction("create", currentSchema.tableName, insertedData?.[0]?.id || null);
       }
+      // Invalidate cache so data stays fresh
+      if (tabDataCache?.current) delete tabDataCache.current[schemaId];
       setShowForm(false);
-      await fetchRecords();
+      await fetchRecords(true);
       showToast(editingRecord ? "تم التعديل بنجاح" : "تمت الإضافة بنجاح", "success");
     } catch (err: any) { 
       console.error("Save error:", err);
@@ -1381,7 +1419,8 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
           const { error } = await supabase.from(currentSchema.tableName).delete().eq("id", id);
           if (error) throw error;
           await logAction("delete", currentSchema.tableName, id);
-          await fetchRecords();
+          if (tabDataCache?.current) delete tabDataCache.current[schemaId];
+          await fetchRecords(true);
           showToast("تم الحذف بنجاح", "success");
         } catch (err: any) { 
           console.error("Delete error:", err);
@@ -1404,8 +1443,9 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
           const { error: bulkErr } = await supabase.from(currentSchema.tableName).delete().in("id", selectedIds);
           if (bulkErr) console.error("Bulk delete error:", bulkErr);
           await logAction("bulk_delete", currentSchema.tableName, null);
+          if (tabDataCache?.current) delete tabDataCache.current[schemaId];
           setSelectedIds([]);
-          await fetchRecords();
+          await fetchRecords(true);
           showToast("تم حذف السجلات المحددة بنجاح", "success");
         } catch (err: any) { 
           console.error("Bulk delete error:", err);
@@ -1540,7 +1580,8 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
         setImportProgress({ total: toInsert.length, done: inserted + updated, errors: rowErrors, success: false });
       }
       setImportProgress({ total: toInsert.length, done: inserted + updated, errors: rowErrors, success: true, inserted, updated });
-      await fetchRecords();
+      if (tabDataCache?.current) delete tabDataCache.current[schemaId];
+      await fetchRecords(true);
       await logAction("bulk_import", currentSchema.tableName, null);
     } catch (err: any) {
       console.error("Import error:", err);
@@ -1681,7 +1722,7 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((record: any) => {
+                {pagedRows.map((record: any) => {
                   const isLowRemaining = schemaId === 'purchases' && Number(record.quantity_requested) > 0 && Number(record.quantity_remaining) < (Number(record.quantity_requested) * 0.1);
                   const baseBg = isLowRemaining ? "#fef2f2" : "white";
                   const hoverBg = isLowRemaining ? "#fee2e2" : "#f8fafc";
@@ -1779,6 +1820,23 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
           </table>
         </div>
       }
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", background:"white", borderRadius:"12px", border:"1.5px solid #e2e8f0", boxShadow:"0 2px 8px rgba(0,0,0,0.04)", marginTop:"8px", flexWrap:"wrap", gap:"8px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"6px", flexWrap:"wrap" }}>
+            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding:"6px 14px", borderRadius:"8px", border:"1.5px solid #e2e8f0", background: page === 0 ? "#f1f5f9" : "white", color: page === 0 ? "#94a3b8" : "#4f46e5", fontWeight:"800", cursor: page === 0 ? "default" : "pointer", fontSize:"13px" }}>&#8592; السابق</button>
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              const pageNum = totalPages <= 7 ? i : Math.max(0, Math.min(page - 3, totalPages - 7)) + i;
+              return (
+                <button key={pageNum} onClick={() => setPage(pageNum)} style={{ width:"32px", height:"32px", borderRadius:"8px", border:"1.5px solid", borderColor: page === pageNum ? "#4f46e5" : "#e2e8f0", background: page === pageNum ? "#4f46e5" : "white", color: page === pageNum ? "white" : "#475569", fontWeight:"800", cursor:"pointer", fontSize:"12px" }}>{pageNum + 1}</button>
+              );
+            })}
+            <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} style={{ padding:"6px 14px", borderRadius:"8px", border:"1.5px solid #e2e8f0", background: page >= totalPages - 1 ? "#f1f5f9" : "white", color: page >= totalPages - 1 ? "#94a3b8" : "#4f46e5", fontWeight:"800", cursor: page >= totalPages - 1 ? "default" : "pointer", fontSize:"13px" }}>التالي &#8594;</button>
+          </div>
+          <div style={{ color:"#64748b", fontSize:"12px", fontWeight:"700" }}>عرض {page * PAGE_SIZE + 1}&#8211;{Math.min((page + 1) * PAGE_SIZE, filtered.length)} من {filtered.length.toLocaleString("ar-EG")} سجل</div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", zIndex: 9999 }} onClick={() => setShowForm(false)}>
@@ -2164,6 +2222,8 @@ const BudgetAiForecast = ({ sheetLabel, rows, monthlyTotals, sheetTotals }: {
     </div>
   );
 };
+
+);
 
 const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: any) => {
   const isViewer = currentUser?.role === "viewer";
@@ -3181,6 +3241,10 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
 };
 
 function AdminAffairsSystemInner() {
+  // ── Global tab data cache: avoids re-fetching on tab switch ──
+  const tabDataCache = useRef<Record<string, any[]>>({});
+  const dashboardCache = useRef<any>(null);
+
   const [currentView, setCurrentView] = useState("login");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -3702,6 +3766,7 @@ function AdminAffairsSystemInner() {
         {activeTab === "dashboard" ? (
           <Dashboard 
             supabase={supabase} 
+            dashboardCache={dashboardCache}
             systemMenu={
               (currentUser?.role === "admin" || currentUser?.role === "owner") ? (
                 <div className="relative">
@@ -3744,7 +3809,7 @@ function AdminAffairsSystemInner() {
         ) : activeTab === "admin_reports" ? (
           <AdminReportsSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
         ) : (
-          <DataTableTab key={activeTab} schemaId={activeTab} supabase={supabase} currentUser={currentUser} logAction={logAction} showToast={showToast} setConfirmDialog={setConfirmDialog} />
+          <DataTableTab schemaId={activeTab} supabase={supabase} currentUser={currentUser} logAction={logAction} showToast={showToast} setConfirmDialog={setConfirmDialog} tabDataCache={tabDataCache} />
         )}
       </main>
 
