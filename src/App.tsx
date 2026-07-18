@@ -1883,7 +1883,7 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       )}
     </div>
   );
-};
+});
 
 // ==================== BUDGET SECTION ====================
 
@@ -2219,7 +2219,7 @@ const BudgetAiForecast = ({ sheetLabel, rows, monthlyTotals, sheetTotals }: {
       )}
     </div>
   );
-});
+};
 
 const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: any) => {
   const isViewer = currentUser?.role === "viewer";
