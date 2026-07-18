@@ -1218,9 +1218,7 @@ const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supaba
            </div>
        </div>
    );
-};
-
-);
+});
 
 const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, showToast, setConfirmDialog, tabDataCache }: any) => {
   const currentSchema = schemas[schemaId];
@@ -2221,9 +2219,7 @@ const BudgetAiForecast = ({ sheetLabel, rows, monthlyTotals, sheetTotals }: {
       )}
     </div>
   );
-};
-
-);
+});
 
 const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: any) => {
   const isViewer = currentUser?.role === "viewer";
