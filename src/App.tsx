@@ -19,6 +19,38 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { bootstrapOwner, createManagerAccount } from "@/lib/admin-users.functions";
 
+
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  componentDidCatch(error: any, info: any) { console.error("App Error:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div dir="rtl" style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#f8fafc", fontFamily:"Cairo,sans-serif", padding:"20px" }}>
+          <div style={{ background:"white", borderRadius:"20px", padding:"40px", maxWidth:"500px", width:"100%", boxShadow:"0 20px 60px rgba(0,0,0,0.1)", textAlign:"center", border:"2px solid #fee2e2" }}>
+            <div style={{ fontSize:"48px", marginBottom:"16px" }}>⚠️</div>
+            <h2 style={{ color:"#dc2626", fontWeight:"900", fontSize:"20px", marginBottom:"12px" }}>حدث خطأ في التطبيق</h2>
+            <p style={{ color:"#64748b", fontSize:"13px", marginBottom:"24px", lineHeight:"1.8" }}>
+              {String(this.state.error?.message || "خطأ غير معروف")}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{ background:"#4f46e5", color:"white", border:"none", borderRadius:"10px", padding:"12px 28px", fontWeight:"900", fontSize:"14px", cursor:"pointer", fontFamily:"Cairo,sans-serif" }}
+            >
+              🔄 إعادة تحميل الصفحة
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
@@ -830,17 +862,22 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
    useEffect(() => {
        const fetchStats = async () => {
            setLoading(true);
+           try {
            const [purchases_d, summary_d, vegetables_d, assets_d, budget_d, assetsNew_d, adminRep_d] = await Promise.all([
-               fetchAllPages(() => supabase.from("admin_affairs_purchases").select("*").order('request_date', { ascending: false })),
-               fetchAllPages(() => supabase.from("admin_affairs_summary").select("*")),
-               fetchAllPages(() => supabase.from("admin_affairs_vegetables").select("*")),
-               fetchAllPages(() => supabase.from("admin_affairs_assets").select("*")),
-               fetchAllPages(() => supabase.from("budget_rows").select("*")),
-               fetchAllPages(() => supabase.from("assets_rows").select("*")),
-               fetchAllPages(() => supabase.from("admin_reports").select("*"))
+               fetchAllPages(() => supabase.from("admin_affairs_purchases").select("id,system_request_no,admin_request_no,request_date,item_name,unit,quantity_requested,quantity_executed,quantity_remaining,year,executor,requesting_department,receipt_date,received_by").order('request_date', { ascending: false })),
+               fetchAllPages(() => supabase.from("admin_affairs_summary").select("id,request_number,request_date,execution_date,description,year,status,remaining_items")),
+               fetchAllPages(() => supabase.from("admin_affairs_vegetables").select("id,item_name,year,executor,requesting_department,quantity_requested,quantity_executed")),
+               fetchAllPages(() => supabase.from("admin_affairs_assets").select("id,item_name,year,requesting_department,quantity_added")),
+               fetchAllPages(() => supabase.from("budget_rows").select("id,item,item_code,sheet,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,price,total_cost")),
+               fetchAllPages(() => supabase.from("assets_rows").select("id,item_name,department,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,price,total_cost")),
+               fetchAllPages(() => supabase.from("admin_reports").select("id,report_month,report_year,store_name,task,task_description,total_value"))
            ]);
            setStats({ purchases: purchases_d, summary: summary_d, vegetables: vegetables_d, assets: assets_d, budget: budget_d, assets_new: assetsNew_d, admin_reports: adminRep_d });
-           setLoading(false);
+           } catch (err: any) {
+             console.error("Dashboard fetch error:", err);
+           } finally {
+             setLoading(false);
+           }
        };
        fetchStats();
    }, [supabase]);
@@ -1107,13 +1144,13 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
                      <ResponsiveContainer width="100%" height="100%">
                          <BarChart data={deptData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                              <defs>
-                               <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.9}/><stop offset="95%" stopColor="#818cf8" stopOpacity={0.6}/></linearGradient>
-                               <linearGradient id="colorEmerald" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.9}/><stop offset="95%" stopColor="#34d399" stopOpacity={0.6}/></linearGradient>
-                               <linearGradient id="colorAmber" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.9}/><stop offset="95%" stopColor="#fbbf24" stopOpacity={0.6}/></linearGradient>
-                               <linearGradient id="colorRose" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.9}/><stop offset="95%" stopColor="#fb7185" stopOpacity={0.6}/></linearGradient>
-                               <linearGradient id="colorPurple" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a855f7" stopOpacity={0.9}/><stop offset="95%" stopColor="#c084fc" stopOpacity={0.6}/></linearGradient>
-                               <linearGradient id="colorTeal" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#14b8a6" stopOpacity={0.9}/><stop offset="95%" stopColor="#2dd4bf" stopOpacity={0.6}/></linearGradient>
-                               <linearGradient id="colorBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.9}/><stop offset="95%" stopColor="#60a5fa" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorIndigo" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.9}/><stop offset="95%" stopColor="#818cf8" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorEmerald" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.9}/><stop offset="95%" stopColor="#34d399" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorAmber" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.9}/><stop offset="95%" stopColor="#fbbf24" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorRose" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.9}/><stop offset="95%" stopColor="#fb7185" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorPurple" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a855f7" stopOpacity={0.9}/><stop offset="95%" stopColor="#c084fc" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorTeal" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#14b8a6" stopOpacity={0.9}/><stop offset="95%" stopColor="#2dd4bf" stopOpacity={0.6}/></linearGradient>
+                               <linearGradient id="deptColorBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.9}/><stop offset="95%" stopColor="#60a5fa" stopOpacity={0.6}/></linearGradient>
                              </defs>
                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                              <XAxis dataKey="name" tickFormatter={englishToArabic} tick={{fontSize: 9, fill: '#64748b'}} axisLine={false} tickLine={false} />
@@ -1121,7 +1158,7 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
                              <RechartsTooltip formatter={(value: any) => [englishToArabic(value), 'العدد']} labelFormatter={englishToArabic} cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)'}} />
                              <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={20}>
                                  {deptData.map((entry, index) => {
-                                     const colors = ["url(#colorIndigo)", "url(#colorEmerald)", "url(#colorAmber)", "url(#colorRose)", "url(#colorPurple)", "url(#colorTeal)", "url(#colorBlue)"];
+                                     const colors = ["url(#deptColorIndigo)", "url(#deptColorEmerald)", "url(#deptColorAmber)", "url(#deptColorRose)", "url(#deptColorPurple)", "url(#deptColorTeal)", "url(#deptColorBlue)"];
                                      return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
                                  })}
                              </Bar>
@@ -1364,10 +1401,8 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
       msg: `⚠️ هل أنت متأكد من حذف ${englishToArabic(selectedIds.length)} سجل نهائياً؟`,
       onConfirm: async () => {
         try {
-          for (const id of selectedIds) {
-            const { error } = await supabase.from(currentSchema.tableName).delete().eq("id", id);
-            if (error) console.error("Delete batch error:", error);
-          }
+          const { error: bulkErr } = await supabase.from(currentSchema.tableName).delete().in("id", selectedIds);
+          if (bulkErr) console.error("Bulk delete error:", bulkErr);
           await logAction("bulk_delete", currentSchema.tableName, null);
           setSelectedIds([]);
           await fetchRecords();
@@ -1462,18 +1497,30 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
         setUploadingFile(false); return;
       }
 
-      const BATCH = 10;
+      const BATCH = 50;
       let inserted = 0;
       let updated = 0;
       const uniqueKeys: string[] = currentSchema.uniqueKey || [];
+
+      // Build a fast lookup Map to avoid O(n²) find inside loop
+      const existingMap = new Map<string, any>();
+      if (uniqueKeys.length > 0) {
+        records.forEach((r: any) => {
+          const key = uniqueKeys.map(k => String(r[k] ?? "").trim()).join("||");
+          existingMap.set(key, r);
+        });
+      }
 
       for (let i = 0; i < toInsert.length; i += BATCH) {
         const batch = toInsert.slice(i, i + BATCH);
         if (uniqueKeys.length > 0) {
           for (const rec of batch) {
-            const existing = records.find((r: any) => uniqueKeys.every(k => r[k] != null && rec[k] != null && String(r[k]).trim() === String(rec[k]).trim()));
-            if (existing) {
-              const { error } = await supabase.from(currentSchema.tableName).update({ ...rec, updated_at: new Date().toISOString() }).eq("id", existing.id);
+            const lookupKey = uniqueKeys.map(k => String(rec[k] ?? "").trim()).join("||");
+            const existing = existingMap.get(lookupKey);
+            if (existing) { existing._found = true; }
+            const _existing = existing;
+            if (_existing) {
+              const { error } = await supabase.from(currentSchema.tableName).update({ ...rec, updated_at: new Date().toISOString() }).eq("id", _existing.id);
               if (!error) updated++;
               else console.error("Update error:", error);
             } else {
@@ -2387,8 +2434,10 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       requirePassword: true,
       onConfirm: async () => {
         const rows = allData[activeSheet] || [];
-        for (const r of rows) {
-          await supabase.from(TABLE).delete().eq("id", r.id);
+        const ids = rows.map((r: any) => r.id);
+        if (ids.length > 0) {
+          const { error } = await supabase.from(TABLE).delete().in("id", ids);
+          if (error) console.error("Delete all budget rows error:", error);
         }
         await fetchAll();
         showToast("تم حذف بيانات الشيت", "success");
@@ -2668,7 +2717,7 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
     }
     if (activeDept !== "all") r = r.filter(x => x.department === activeDept);
     return r;
-  }, [records, searchText, deptFilter]);
+  }, [records, searchText, activeDept]);
 
   const stats = useMemo(() => ({
     count: filtered.length,
@@ -2752,8 +2801,10 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       msg: "هل تريد حذف جميع بيانات الأصول؟ هذا لا يمكن التراجع عنه!",
       requirePassword: true,
       onConfirm: async () => {
-        for (const r of records) {
-          await supabase.from(TABLE).delete().eq("id", r.id);
+        const ids = records.map((r: any) => r.id);
+        if (ids.length > 0) {
+          const { error } = await supabase.from(TABLE).delete().in("id", ids);
+          if (error) console.error("Delete all assets error:", error);
         }
         await fetchAll();
         showToast("تم حذف جميع البيانات", "success");
@@ -3129,7 +3180,7 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   );
 };
 
-export default function AdminAffairsSystem() {
+function AdminAffairsSystemInner() {
   const [currentView, setCurrentView] = useState("login");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -3934,8 +3985,10 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
       msg: "هل تريد حذف جميع بيانات التقارير الإدارية؟ لا يمكن التراجع عن هذا الإجراء!",
       requirePassword: true,
       onConfirm: async () => {
-        for (const r of records) {
-          await supabase.from(TABLE).delete().eq("id", r.id);
+        const ids = records.map((r: any) => r.id);
+        if (ids.length > 0) {
+          const { error } = await supabase.from(TABLE).delete().in("id", ids);
+          if (error) console.error("Delete all admin reports error:", error);
         }
         await fetchAll();
         showToast("تم حذف جميع البيانات", "success");
@@ -4474,3 +4527,11 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
     </div>
   );
 };
+
+export default function AdminAffairsSystem() {
+  return (
+    <ErrorBoundary>
+      <AdminAffairsSystemInner />
+    </ErrorBoundary>
+  );
+}
