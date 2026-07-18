@@ -2457,6 +2457,27 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         </div>
       </div>
 
+      {/* ── الرسم البياني الشهري ── */}
+      <div style={{ background:"white", padding:"12px", borderRadius:"12px", border:"1px solid #e2e8f0" }}>
+        <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#4c1d95" }}>
+          📊 الكميات الشهرية{activeDept !== "all" ? ` — ${activeDept}` : " — جميع الجهات"}
+        </h3>
+        <div style={{ height:"140px" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={monthlyTotalsForDept} margin={{ top:0, right:0, left:-20, bottom:0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" tick={{ fontSize:9, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize:9, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
+              <RechartsTooltip
+                formatter={(v: any) => [Number(v).toLocaleString("en-US"), "الكمية"]}
+                contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }}
+              />
+              <Bar dataKey="total" radius={[6,6,0,0]} barSize={16} fill="#7c3aed" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {importProgress && (
         <div style={{ background:"white", borderRadius:"10px", padding:"12px", border:`2px solid ${importProgress.success ? "#22c55e" : "#3b82f6"}` }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px" }}>
@@ -4206,27 +4227,6 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* رسائل الاستيراد */}
-      <div style={{ background:"white", padding:"12px", borderRadius:"12px", border:"1px solid #e2e8f0" }}>
-        <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#4c1d95" }}>
-          📊 الكميات الشهرية{activeDept !== "all" ? ` — ${activeDept}` : " — جميع الجهات"}
-        </h3>
-        <div style={{ height:"140px" }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlyTotalsForDept} margin={{ top:0, right:0, left:-20, bottom:0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize:9, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize:9, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
-              <RechartsTooltip
-                formatter={(v: any) => [Number(v).toLocaleString("en-US"), "الكمية"]}
-                contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }}
-              />
-              <Bar dataKey="total" radius={[6,6,0,0]} barSize={16} fill="#7c3aed" />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
