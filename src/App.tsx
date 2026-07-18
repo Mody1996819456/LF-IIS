@@ -107,6 +107,16 @@ const parseImportDate = (value: any): string | null => {
     return isNaN(fallback.getTime()) ? null : fallback.toISOString().split("T")[0];
 };
 
+// Deletes a large list of IDs in small batches so the request URL (id=in.(...))
+// never grows large enough to fail with "TypeError: Failed to fetch".
+const deleteInBatches = async (supabase: any, table: string, ids: string[], batchSize = 100) => {
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const chunk = ids.slice(i, i + batchSize);
+    const { error } = await supabase.from(table).delete().in("id", chunk);
+    if (error) throw error;
+  }
+};
+
 const departments = ["الإدارة", "المطبخ", "الصيانة", "النظافة", "الأمن", "الموارد البشرية", "المالية", "أخرى"];
 const statuses = ["لم يتم", "قيد التنفيذ", "تم التنفيذ", "ملغى"];
 const units = ["عدد", "كيس", "علبة", "صندوق", "كيلو", "متر", "ساعة", "أخرى"];
@@ -1438,8 +1448,7 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       msg: `⚠️ هل أنت متأكد من حذف ${englishToArabic(selectedIds.length)} سجل نهائياً؟`,
       onConfirm: async () => {
         try {
-          const { error: bulkErr } = await supabase.from(currentSchema.tableName).delete().in("id", selectedIds);
-          if (bulkErr) throw bulkErr;
+          await deleteInBatches(supabase, currentSchema.tableName, selectedIds);
           await logAction("bulk_delete", currentSchema.tableName, null);
           if (tabDataCache?.current) delete tabDataCache.current[schemaId];
           setSelectedIds([]);
@@ -2350,8 +2359,9 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       title: "حذف متعدد",
       msg: `⚠️ هل أنت متأكد من حذف ${selectedIds.length} سجل نهائياً؟`,
       onConfirm: async () => {
-        const { error } = await supabase.from(TABLE).delete().in("id", selectedIds);
-        if (error) {
+        try {
+          await deleteInBatches(supabase, TABLE, selectedIds);
+        } catch (error: any) {
           showToast("خطأ في الحذف: " + error.message, "error");
           return;
         }
@@ -2512,8 +2522,9 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         const rows = allData[activeSheet] || [];
         const ids = rows.map((r: any) => r.id);
         if (ids.length > 0) {
-          const { error } = await supabase.from(TABLE).delete().in("id", ids);
-          if (error) {
+          try {
+            await deleteInBatches(supabase, TABLE, ids);
+          } catch (error: any) {
             showToast("خطأ في الحذف: " + error.message, "error");
             return;
           }
@@ -2898,8 +2909,9 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       title: "حذف متعدد",
       msg: `⚠️ هل أنت متأكد من حذف ${selectedIds.length} سجل نهائياً؟`,
       onConfirm: async () => {
-        const { error } = await supabase.from(TABLE).delete().in("id", selectedIds);
-        if (error) {
+        try {
+          await deleteInBatches(supabase, TABLE, selectedIds);
+        } catch (error: any) {
           showToast("خطأ في الحذف: " + error.message, "error");
           return;
         }
@@ -2919,8 +2931,9 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       onConfirm: async () => {
         const ids = records.map((r: any) => r.id);
         if (ids.length > 0) {
-          const { error } = await supabase.from(TABLE).delete().in("id", ids);
-          if (error) {
+          try {
+            await deleteInBatches(supabase, TABLE, ids);
+          } catch (error: any) {
             showToast("خطأ في الحذف: " + error.message, "error");
             return;
           }
@@ -4137,8 +4150,9 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
       title: "حذف متعدد",
       msg: `⚠️ هل أنت متأكد من حذف ${selectedIds.length} سجل نهائياً؟`,
       onConfirm: async () => {
-        const { error } = await supabase.from(TABLE).delete().in("id", selectedIds);
-        if (error) {
+        try {
+          await deleteInBatches(supabase, TABLE, selectedIds);
+        } catch (error: any) {
           showToast("خطأ في الحذف: " + error.message, "error");
           return;
         }
@@ -4158,8 +4172,9 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
       onConfirm: async () => {
         const ids = records.map((r: any) => r.id);
         if (ids.length > 0) {
-          const { error } = await supabase.from(TABLE).delete().in("id", ids);
-          if (error) {
+          try {
+            await deleteInBatches(supabase, TABLE, ids);
+          } catch (error: any) {
             showToast("خطأ في الحذف: " + error.message, "error");
             return;
           }
