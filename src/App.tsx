@@ -1439,7 +1439,7 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       onConfirm: async () => {
         try {
           const { error: bulkErr } = await supabase.from(currentSchema.tableName).delete().in("id", selectedIds);
-          if (bulkErr) console.error("Bulk delete error:", bulkErr);
+          if (bulkErr) throw bulkErr;
           await logAction("bulk_delete", currentSchema.tableName, null);
           if (tabDataCache?.current) delete tabDataCache.current[schemaId];
           setSelectedIds([]);
@@ -2236,6 +2236,7 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const isMobile = useIsMobile();
   const headerPadTop = isMobile ? 40 : 12;
   const [form, setForm] = useState<any>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const TABLE = "budget_rows";
 
@@ -2338,6 +2339,25 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         }
         await fetchAll();
         showToast("تم الحذف", "success");
+      }
+    });
+  };
+
+  const deleteSelected = () => {
+    if (isViewer) return showToast("ليس لديك صلاحية", "error");
+    if (selectedIds.length === 0) return;
+    setConfirmDialog({
+      title: "حذف متعدد",
+      msg: `⚠️ هل أنت متأكد من حذف ${selectedIds.length} سجل نهائياً؟`,
+      onConfirm: async () => {
+        const { error } = await supabase.from(TABLE).delete().in("id", selectedIds);
+        if (error) {
+          showToast("خطأ في الحذف: " + error.message, "error");
+          return;
+        }
+        setSelectedIds([]);
+        await fetchAll();
+        showToast("تم حذف السجلات المحددة بنجاح", "success");
       }
     });
   };
@@ -2493,7 +2513,10 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         const ids = rows.map((r: any) => r.id);
         if (ids.length > 0) {
           const { error } = await supabase.from(TABLE).delete().in("id", ids);
-          if (error) console.error("Delete all budget rows error:", error);
+          if (error) {
+            showToast("خطأ في الحذف: " + error.message, "error");
+            return;
+          }
         }
         await fetchAll();
         showToast("تم حذف بيانات الشيت", "success");
@@ -2625,6 +2648,13 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         )}
       </div>
 
+      {!isViewer && selectedIds.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:"10px", background:"#eef2ff", border:"1px solid #c7d2fe", borderRadius:"8px", padding:"8px 12px" }}>
+          <span style={{ fontWeight:"700", color:"#4f46e5", fontSize:"13px" }}>✓ تم تحديد {selectedIds.length} سجل</span>
+          <button onClick={deleteSelected} style={{ marginLeft:"auto", padding:"6px 12px", background:"#dc2626", color:"white", border:"none", borderRadius:"6px", fontWeight:"700", fontSize:"11px", cursor:"pointer" }}>🗑️ حذف المحدد</button>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign:"center", padding:"40px" }}><Loader2 className="animate-spin text-amber-500" size={32} /></div>
       ) : (
@@ -2632,6 +2662,11 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px", minWidth:"1000px" }}>
             <thead style={{ background:"linear-gradient(90deg,#b45309,#d97706)", color:"white", position:"sticky", top:0, zIndex:5 }}>
               <tr>
+                {!isViewer && (
+                  <th style={{ padding:"5px 6px", textAlign:"center", border:"1px solid #b45309" }}>
+                    <input type="checkbox" checked={selectedIds.length === currentRows.length && currentRows.length > 0} onChange={e => setSelectedIds(e.target.checked ? currentRows.map(r => r.id) : [])} style={{ width:"14px", height:"14px", accentColor:"#4f46e5" }} />
+                  </th>
+                )}
                 <th style={{ padding:"5px 6px", textAlign:"right", border:"1px solid #b45309", fontWeight:"800", fontSize:"12px", whiteSpace:"nowrap" }}>الكود</th>
                 <th style={{ padding:"5px 6px", textAlign:"right", border:"1px solid #b45309", fontWeight:"800", fontSize:"12px" }}>اسم الصنف</th>
                 <th style={{ padding:"5px 6px", textAlign:"center", border:"1px solid #b45309", fontWeight:"800", fontSize:"12px" }}>الوحدة</th>
@@ -2646,13 +2681,18 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
             </thead>
             <tbody>
               {currentRows.length === 0 ? (
-                <tr><td colSpan={17 + (!isViewer ? 1 : 0)} style={{ textAlign:"center", padding:"30px", color:"#94a3b8", fontWeight:"700", fontSize:"13px" }}>لا توجد بيانات - قم بالاستيراد أو الإضافة اليدوية</td></tr>
+                <tr><td colSpan={17 + (!isViewer ? 2 : 0)} style={{ textAlign:"center", padding:"30px", color:"#94a3b8", fontWeight:"700", fontSize:"13px" }}>لا توجد بيانات - قم بالاستيراد أو الإضافة اليدوية</td></tr>
               ) : currentRows.map((row, i) => {
                 const bg = i % 2 === 0 ? "white" : "#fffbeb";
                 return (
                   <tr key={row.id} style={{ background: bg, transition:"background 0.2s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#fef3c7")}
                     onMouseLeave={e => (e.currentTarget.style.background = bg)}>
+                    {!isViewer && (
+                      <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", textAlign:"center" }}>
+                        <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={e => setSelectedIds(e.target.checked ? [...selectedIds, row.id] : selectedIds.filter(id => id !== row.id))} style={{ width:"14px", height:"14px", accentColor:"#4f46e5" }} />
+                      </td>
+                    )}
                     <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", color:"#64748b", fontSize:"11px", fontFamily:"monospace" }}>{row.item_code}</td>
                     <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", fontWeight:"700", color:"#1e293b", fontSize:"12px" }}>{row.item}</td>
                     <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", textAlign:"center", color:"#64748b", fontSize:"11px" }}>{row.unit}</td>
@@ -2749,6 +2789,7 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const isMobile = useIsMobile();
   const headerPadTop = isMobile ? 40 : 12;
   const [form, setForm] = useState<any>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const TABLE = "assets_rows";
 
@@ -2850,6 +2891,25 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
     });
   };
 
+  const deleteSelected = () => {
+    if (isViewer) return showToast("ليس لديك صلاحية", "error");
+    if (selectedIds.length === 0) return;
+    setConfirmDialog({
+      title: "حذف متعدد",
+      msg: `⚠️ هل أنت متأكد من حذف ${selectedIds.length} سجل نهائياً؟`,
+      onConfirm: async () => {
+        const { error } = await supabase.from(TABLE).delete().in("id", selectedIds);
+        if (error) {
+          showToast("خطأ في الحذف: " + error.message, "error");
+          return;
+        }
+        setSelectedIds([]);
+        await fetchAll();
+        showToast("تم حذف السجلات المحددة بنجاح", "success");
+      }
+    });
+  };
+
   const deleteAll = () => {
     if (isViewer) return showToast("ليس لديك صلاحية", "error");
     setConfirmDialog({
@@ -2860,7 +2920,10 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         const ids = records.map((r: any) => r.id);
         if (ids.length > 0) {
           const { error } = await supabase.from(TABLE).delete().in("id", ids);
-          if (error) console.error("Delete all assets error:", error);
+          if (error) {
+            showToast("خطأ في الحذف: " + error.message, "error");
+            return;
+          }
         }
         await fetchAll();
         showToast("تم حذف جميع البيانات", "success");
@@ -3121,6 +3184,13 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         )}
       </div>
 
+      {!isViewer && selectedIds.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:"10px", background:"#eef2ff", border:"1px solid #c7d2fe", borderRadius:"8px", padding:"8px 12px" }}>
+          <span style={{ fontWeight:"700", color:"#4f46e5", fontSize:"13px" }}>✓ تم تحديد {selectedIds.length} سجل</span>
+          <button onClick={deleteSelected} style={{ marginLeft:"auto", padding:"6px 12px", background:"#dc2626", color:"white", border:"none", borderRadius:"6px", fontWeight:"700", fontSize:"11px", cursor:"pointer" }}>🗑️ حذف المحدد</button>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign:"center", padding:"40px" }}><Loader2 className="animate-spin text-purple-500" size={32} /></div>
       ) : (
@@ -3128,6 +3198,11 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px", minWidth:"1100px" }}>
             <thead style={{ background:"linear-gradient(90deg,#4c1d95,#6d28d9)", color:"white", position:"sticky", top:0, zIndex:5 }}>
               <tr>
+                {!isViewer && (
+                  <th style={{ padding:"5px 6px", textAlign:"center", border:"1px solid #5b21b6" }}>
+                    <input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={e => setSelectedIds(e.target.checked ? filtered.map(r => r.id) : [])} style={{ width:"14px", height:"14px", accentColor:"#4f46e5" }} />
+                  </th>
+                )}
                 <th style={{ padding:"5px 6px", textAlign:"right", border:"1px solid #5b21b6", fontWeight:"800", fontSize:"12px" }}>اسم الصنف</th>
                 <th style={{ padding:"5px 6px", textAlign:"right", border:"1px solid #5b21b6", fontWeight:"800", fontSize:"12px" }}>الوصف</th>
                 <th style={{ padding:"5px 6px", textAlign:"center", border:"1px solid #5b21b6", fontWeight:"800", fontSize:"12px" }}>الوحدة</th>
@@ -3143,13 +3218,18 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={18 + (!isViewer ? 1 : 0)} style={{ textAlign:"center", padding:"30px", color:"#94a3b8", fontWeight:"700", fontSize:"13px" }}>لا توجد بيانات - قم بالاستيراد أو الإضافة اليدوية</td></tr>
+                <tr><td colSpan={18 + (!isViewer ? 2 : 0)} style={{ textAlign:"center", padding:"30px", color:"#94a3b8", fontWeight:"700", fontSize:"13px" }}>لا توجد بيانات - قم بالاستيراد أو الإضافة اليدوية</td></tr>
               ) : filtered.map((row, i) => {
                 const bg = i % 2 === 0 ? "white" : "#faf5ff";
                 return (
                   <tr key={row.id} style={{ background: bg, transition:"background 0.2s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#f5f3ff")}
                     onMouseLeave={e => (e.currentTarget.style.background = bg)}>
+                    {!isViewer && (
+                      <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", textAlign:"center" }}>
+                        <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={e => setSelectedIds(e.target.checked ? [...selectedIds, row.id] : selectedIds.filter(id => id !== row.id))} style={{ width:"14px", height:"14px", accentColor:"#4f46e5" }} />
+                      </td>
+                    )}
                     <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", fontWeight:"700", color:"#1e293b", maxWidth:"180px", fontSize:"12px" }}>{row.item_name}</td>
                     <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", color:"#64748b", fontSize:"11px", maxWidth:"180px" }}>{row.description}</td>
                     <td style={{ padding:"4px 6px", border:"1px solid #e2e8f0", textAlign:"center", color:"#64748b", fontSize:"11px" }}>{row.unit}</td>
@@ -3430,11 +3510,14 @@ function AdminAffairsSystemInner() {
         try {
           setIsSystemProcessing(true);
 
+          const failedTables: string[] = [];
+
           // Delete all schema tables
           for (const key of Object.keys(schemas)) {
             const { error } = await supabase.from(schemas[key].tableName).delete().neq("id", "00000000-0000-0000-0000-000000000000");
             if (error) {
               console.error(`Delete error for ${schemas[key].tableName}:`, error);
+              failedTables.push(schemas[key].tableName);
             }
           }
 
@@ -3444,7 +3527,14 @@ function AdminAffairsSystemInner() {
             const { error } = await supabase.from(tableName as any).delete().neq("id", "00000000-0000-0000-0000-000000000000");
             if (error) {
               console.error(`Delete error for ${tableName}:`, error);
+              failedTables.push(tableName);
             }
+          }
+
+          if (failedTables.length > 0) {
+            showToast("فشل حذف بعض الجداول: " + failedTables.join(", "), "error");
+            setIsSystemProcessing(false);
+            return;
           }
 
           await logAction("system_wipe", "all_tables", null);
@@ -3901,6 +3991,7 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
   const [storeFilter, setStoreFilter] = useState("all");
   const [taskFilter, setTaskFilter] = useState("all");
   const [form, setForm] = useState<any>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
   const headerPadTop = isMobile ? 40 : 12;
@@ -4039,6 +4130,25 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
     });
   };
 
+  const deleteSelected = () => {
+    if (isViewer) return showToast("ليس لديك صلاحية", "error");
+    if (selectedIds.length === 0) return;
+    setConfirmDialog({
+      title: "حذف متعدد",
+      msg: `⚠️ هل أنت متأكد من حذف ${selectedIds.length} سجل نهائياً؟`,
+      onConfirm: async () => {
+        const { error } = await supabase.from(TABLE).delete().in("id", selectedIds);
+        if (error) {
+          showToast("خطأ في الحذف: " + error.message, "error");
+          return;
+        }
+        setSelectedIds([]);
+        await fetchAll();
+        showToast("تم حذف السجلات المحددة بنجاح", "success");
+      }
+    });
+  };
+
   const deleteAll = () => {
     if (isViewer) return showToast("ليس لديك صلاحية", "error");
     setConfirmDialog({
@@ -4049,7 +4159,10 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
         const ids = records.map((r: any) => r.id);
         if (ids.length > 0) {
           const { error } = await supabase.from(TABLE).delete().in("id", ids);
-          if (error) console.error("Delete all admin reports error:", error);
+          if (error) {
+            showToast("خطأ في الحذف: " + error.message, "error");
+            return;
+          }
         }
         await fetchAll();
         showToast("تم حذف جميع البيانات", "success");
@@ -4457,6 +4570,13 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
         )}
       </div>
 
+      {!isViewer && selectedIds.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:"10px", background:"#eef2ff", border:"1px solid #c7d2fe", borderRadius:"8px", padding:"8px 12px" }}>
+          <span style={{ fontWeight:"700", color:"#4f46e5", fontSize:"13px" }}>✓ تم تحديد {selectedIds.length} سجل</span>
+          <button onClick={deleteSelected} style={{ marginLeft:"auto", padding:"6px 12px", background:"#dc2626", color:"white", border:"none", borderRadius:"6px", fontWeight:"700", fontSize:"11px", cursor:"pointer" }}>🗑️ حذف المحدد</button>
+        </div>
+      )}
+
       {/* الجدول */}
       {loading ? (
         <div style={{ textAlign:"center", padding:"40px" }}><Loader2 className="animate-spin text-teal-500" size={32} /></div>
@@ -4465,6 +4585,11 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px", minWidth:"1200px" }}>
             <thead style={{ background:"linear-gradient(90deg,#0f766e,#0d9488)", color:"white", position:"sticky", top:0, zIndex:5 }}>
               <tr>
+                {!isViewer && (
+                  <th style={{ padding:"6px 8px", textAlign:"center", border:"1px solid #0f766e" }}>
+                    <input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={e => setSelectedIds(e.target.checked ? filtered.map(r => r.id) : [])} style={{ width:"14px", height:"14px", accentColor:"#4f46e5" }} />
+                  </th>
+                )}
                 <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", whiteSpace:"nowrap" }}>التاريخ</th>
                 <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", whiteSpace:"nowrap" }}>رقم الإذن</th>
                 <th style={{ padding:"6px 8px", textAlign:"right", border:"1px solid #0f766e", fontWeight:"800", fontSize:"11px", whiteSpace:"nowrap" }}>الكود</th>
@@ -4483,13 +4608,18 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={14} style={{ textAlign:"center", padding:"40px", color:"#94a3b8", fontWeight:"700", fontSize:"14px" }}>لا توجد بيانات — قم برفع ملف التقرير الشهري أو الإضافة اليدوية</td></tr>
+                <tr><td colSpan={14 + (!isViewer ? 1 : 0)} style={{ textAlign:"center", padding:"40px", color:"#94a3b8", fontWeight:"700", fontSize:"14px" }}>لا توجد بيانات — قم برفع ملف التقرير الشهري أو الإضافة اليدوية</td></tr>
               ) : filtered.map((row, i) => {
                 const bg = i % 2 === 0 ? "white" : "#f0fdfa";
                 return (
                   <tr key={row.id} style={{ background: bg, transition:"background 0.15s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#ccfbf1")}
                     onMouseLeave={e => (e.currentTarget.style.background = bg)}>
+                    {!isViewer && (
+                      <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", textAlign:"center" }}>
+                        <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={e => setSelectedIds(e.target.checked ? [...selectedIds, row.id] : selectedIds.filter(id => id !== row.id))} style={{ width:"14px", height:"14px", accentColor:"#4f46e5" }} />
+                      </td>
+                    )}
                     <td style={{ padding:"5px 8px", border:"1px solid #e2e8f0", color:"#334155", fontSize:"11px", whiteSpace:"nowrap" }}>
                       {row.report_date ? formatDate(row.report_date) : "-"}
                     </td>
