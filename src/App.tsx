@@ -2248,7 +2248,6 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { cellDates: true });
       const toInsert: BudgetRow[] = [];
-      const errors: any[] = [];
 
       for (const sheetName of wb.SheetNames) {
         if (!BUDGET_SHEETS.includes(sheetName)) continue;
