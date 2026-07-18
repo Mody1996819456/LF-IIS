@@ -805,6 +805,24 @@ const AdminReportsInsights = ({ adminReports }: { adminReports: any[] }) => {
   );
 };
 
+// ─── Supabase pagination helper ───────────────────────────────────────────────
+// Supabase defaults to 1000 rows per request. This helper loops using .range()
+// until every row is fetched, regardless of total count.
+const fetchAllPages = async (makeQuery: () => any): Promise<any[]> => {
+  const PAGE = 1000;
+  let all: any[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await makeQuery().range(from, from + PAGE - 1);
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
 const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React.ReactNode }) => {
    const [stats, setStats] = useState({ purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [], admin_reports: [] });
    const [loading, setLoading] = useState(true);
@@ -812,16 +830,16 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
    useEffect(() => {
        const fetchStats = async () => {
            setLoading(true);
-           const [p, s, v, a, b, an, ar] = await Promise.all([
-               supabase.from("admin_affairs_purchases").select("*").order('request_date', { ascending: false }),
-               supabase.from("admin_affairs_summary").select("*"),
-               supabase.from("admin_affairs_vegetables").select("*"),
-               supabase.from("admin_affairs_assets").select("*"),
-               supabase.from("budget_rows").select("*"),
-               supabase.from("assets_rows").select("*"),
-               supabase.from("admin_reports").select("*")
+           const [purchases_d, summary_d, vegetables_d, assets_d, budget_d, assetsNew_d, adminRep_d] = await Promise.all([
+               fetchAllPages(() => supabase.from("admin_affairs_purchases").select("*").order('request_date', { ascending: false })),
+               fetchAllPages(() => supabase.from("admin_affairs_summary").select("*")),
+               fetchAllPages(() => supabase.from("admin_affairs_vegetables").select("*")),
+               fetchAllPages(() => supabase.from("admin_affairs_assets").select("*")),
+               fetchAllPages(() => supabase.from("budget_rows").select("*")),
+               fetchAllPages(() => supabase.from("assets_rows").select("*")),
+               fetchAllPages(() => supabase.from("admin_reports").select("*"))
            ]);
-           setStats({ purchases: p.data || [], summary: s.data || [], vegetables: v.data || [], assets: a.data || [], budget: b.data || [], assets_new: an.data || [], admin_reports: ar.data || [] });
+           setStats({ purchases: purchases_d, summary: summary_d, vegetables: vegetables_d, assets: assets_d, budget: budget_d, assets_new: assetsNew_d, admin_reports: adminRep_d });
            setLoading(false);
        };
        fetchStats();
@@ -912,95 +930,84 @@ const Dashboard = ({ supabase, systemMenu }: { supabase: any, systemMenu?: React
                </table>
            </div>
 
-           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-              {/* طلبات الشراء */}
-              <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-blue-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-blue-100/80 text-blue-600 rounded-lg"><ShoppingCart size={16} /></div>
-                     <p className="text-blue-950 font-black text-[11px]">طلبات الشراء</p>
-                 </div>
-                 <h3 className="text-xl font-black text-blue-600 my-1">{englishToArabic(purchases.length)}</h3>
-                 <p className="text-[10px] text-blue-800 font-black">{englishToArabic(completedPurchases)} منجز · {englishToArabic(pendingPurchases)} معلق</p>
-              </div>
+           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+               {/* طلبات الشراء */}
+               <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-blue-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-blue-100/80 text-blue-600 rounded-lg"><ShoppingCart size={16} /></div>
+                      <p className="text-blue-950 font-black text-[11px]">طلبات الشراء</p>
+                  </div>
+                  <h3 className="text-xl font-black text-blue-600 my-1">{englishToArabic(purchases.length)}</h3>
+                  <p className="text-[10px] text-blue-800 font-black">{englishToArabic(completedPurchases)} منجز · {englishToArabic(pendingPurchases)} معلق</p>
+               </div>
 
-              {/* إجمالي الطلبات */}
-              <div className="bg-purple-50/40 p-3 rounded-xl border border-purple-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-purple-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-purple-100/80 text-purple-600 rounded-lg"><ListOrdered size={16} /></div>
-                     <p className="text-purple-950 font-black text-[11px]">إجمالي الطلبات</p>
-                 </div>
-                 <h3 className="text-xl font-black text-purple-600 my-1">{englishToArabic(summary.length)}</h3>
-                 <p className="text-[10px] text-purple-800 font-black">{englishToArabic(completedSummary)} منجز · {englishToArabic(pendingSummary)} معلق</p>
-              </div>
+               {/* إجمالي الطلبات */}
+               <div className="bg-purple-50/40 p-3 rounded-xl border border-purple-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-purple-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-purple-100/80 text-purple-600 rounded-lg"><ListOrdered size={16} /></div>
+                      <p className="text-purple-950 font-black text-[11px]">إجمالي الطلبات</p>
+                  </div>
+                  <h3 className="text-xl font-black text-purple-600 my-1">{englishToArabic(summary.length)}</h3>
+                  <p className="text-[10px] text-purple-800 font-black">{englishToArabic(completedSummary)} منجز · {englishToArabic(pendingSummary)} معلق</p>
+               </div>
 
-              {/* الخضار الأسبوعي */}
-              <div className="bg-green-50/40 p-3 rounded-xl border border-green-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-green-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-green-100/80 text-green-600 rounded-lg"><Leaf size={16} /></div>
-                     <p className="text-green-950 font-black text-[11px]">الخضار الأسبوعي</p>
-                 </div>
-                 <h3 className="text-xl font-black text-green-600 my-1">{englishToArabic(vegetables.length)}</h3>
-                 <p className="text-[10px] text-green-800 font-black">{englishToArabic(completedVeg)} منجز</p>
-              </div>
+               {/* الخضار الأسبوعي */}
+               <div className="bg-green-50/40 p-3 rounded-xl border border-green-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-green-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-green-100/80 text-green-600 rounded-lg"><Leaf size={16} /></div>
+                      <p className="text-green-950 font-black text-[11px]">الخضار الأسبوعي</p>
+                  </div>
+                  <h3 className="text-xl font-black text-green-600 my-1">{englishToArabic(vegetables.length)}</h3>
+                  <p className="text-[10px] text-green-800 font-black">{englishToArabic(completedVeg)} منجز</p>
+               </div>
 
-              {/* الأصول */}
-              <div className="bg-orange-50/40 p-3 rounded-xl border border-orange-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-orange-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-orange-100/80 text-orange-600 rounded-lg"><Package size={16} /></div>
-                     <p className="text-orange-950 font-black text-[11px]">الأصول</p>
-                 </div>
-                 <h3 className="text-xl font-black text-orange-600 my-1">{englishToArabic(assets.length)}</h3>
-                 <p className="text-[10px] text-orange-800 font-black">{englishToArabic(completedAssets)} إجمالي</p>
-              </div>
+               {/* الأصول */}
+               <div className="bg-orange-50/40 p-3 rounded-xl border border-orange-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-orange-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-orange-100/80 text-orange-600 rounded-lg"><Package size={16} /></div>
+                      <p className="text-orange-950 font-black text-[11px]">الأصول</p>
+                  </div>
+                  <h3 className="text-xl font-black text-orange-600 my-1">{englishToArabic(assets.length)}</h3>
+                  <p className="text-[10px] text-orange-800 font-black">{englishToArabic(completedAssets)} إجمالي</p>
+               </div>
 
-              {/* نسبة الإنجاز */}
-              <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-emerald-100/80 text-emerald-600 rounded-lg"><CheckCircle size={16} /></div>
-                     <p className="text-emerald-950 font-black text-[11px]">نسبة الإنجاز</p>
-                 </div>
-                 <h3 className="text-xl font-black text-emerald-600 my-1">{englishToArabic(completionRate)}%</h3>
-                 <p className="text-[10px] text-emerald-800 font-black">{englishToArabic(totalCompleted)} من {englishToArabic(totalActionable)}</p>
-              </div>
+               {/* نسبة الإنجاز */}
+               <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-emerald-100/80 text-emerald-600 rounded-lg"><CheckCircle size={16} /></div>
+                      <p className="text-emerald-950 font-black text-[11px]">نسبة الإنجاز</p>
+                  </div>
+                  <h3 className="text-xl font-black text-emerald-600 my-1">{englishToArabic(completionRate)}%</h3>
+                  <p className="text-[10px] text-emerald-800 font-black">{englishToArabic(totalCompleted)} من {englishToArabic(totalActionable)}</p>
+               </div>
 
-              {/* الموازنة */}
-              <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-amber-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-amber-100/80 text-amber-600 rounded-lg"><BarChart2 size={16} /></div>
-                     <p className="text-amber-950 font-black text-[11px]">الموازنة</p>
-                 </div>
-                 <h3 className="text-xl font-black text-amber-600 my-1">{englishToArabic(budgetRows.length)}</h3>
-                 <p className="text-[10px] text-amber-800 font-black">{budgetTotalCost.toLocaleString("en-US")} ج</p>
-              </div>
+               {/* الموازنة */}
+               <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-amber-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-amber-100/80 text-amber-600 rounded-lg"><BarChart2 size={16} /></div>
+                      <p className="text-amber-950 font-black text-[11px]">الموازنة</p>
+                  </div>
+                  <h3 className="text-xl font-black text-amber-600 my-1">{englishToArabic(budgetRows.length)}</h3>
+                  <p className="text-[10px] text-amber-800 font-black">{budgetTotalCost.toLocaleString("en-US")} ج</p>
+               </div>
 
-              {/* الأصول الجديدة */}
-              <div className="bg-violet-50/40 p-3 rounded-xl border border-violet-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-violet-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-violet-100/80 text-violet-600 rounded-lg"><Building2 size={16} /></div>
-                     <p className="text-violet-950 font-black text-[11px]">الأصول الجديدة</p>
-                 </div>
-                 <h3 className="text-xl font-black text-violet-600 my-1">{englishToArabic(assetsNewRows.length)}</h3>
-                 <p className="text-[10px] text-violet-800 font-black">{assetsNewTotalCost.toLocaleString("en-US")} ج</p>
-              </div>
-
-              {/* التقارير الإدارية */}
-              <div className="bg-teal-50/40 p-3 rounded-xl border border-teal-200 shadow-sm text-center relative overflow-hidden">
-                 <div className="absolute top-0 right-0 w-1 h-full bg-teal-500 rounded-r-xl"></div>
-                 <div className="flex justify-between items-center mb-1.5">
-                     <div className="p-1.5 bg-teal-100/80 text-teal-600 rounded-lg"><CalendarDays size={16} /></div>
-                     <p className="text-teal-950 font-black text-[11px]">التقارير الإدارية</p>
-                 </div>
-                 <h3 className="text-xl font-black text-teal-600 my-1">{englishToArabic(adminReports.length)}</h3>
-                 <p className="text-[10px] text-teal-800 font-black">{adminReports.reduce((s:number,r:any)=>s+(Number(r.total_value)||0),0).toLocaleString("en-US",{maximumFractionDigits:0})} ج</p>
-              </div>
-           </div>
+               {/* الأصول الجديدة */}
+               <div className="bg-violet-50/40 p-3 rounded-xl border border-violet-200 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-violet-500 rounded-r-xl"></div>
+                  <div className="flex justify-between items-center mb-1.5">
+                      <div className="p-1.5 bg-violet-100/80 text-violet-600 rounded-lg"><Building2 size={16} /></div>
+                      <p className="text-violet-950 font-black text-[11px]">الأصول الجديدة</p>
+                  </div>
+                  <h3 className="text-xl font-black text-violet-600 my-1">{englishToArabic(assetsNewRows.length)}</h3>
+                  <p className="text-[10px] text-violet-800 font-black">{assetsNewTotalCost.toLocaleString("en-US")} ج</p>
+               </div>
+            </div>
 
            <div className="bg-white p-4 rounded-xl border shadow-sm">
                <h3 className="text-sm font-bold mb-3 text-purple-900 bg-purple-100/60 p-2 rounded-xl flex items-center gap-2">
@@ -1201,12 +1208,8 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from(currentSchema.tableName).select("*");
-      if (error) {
-        console.error("Fetch error:", error);
-        showToast("خطأ في تحميل البيانات: " + error.message, "error");
-      }
-      if (data) setRecords(data);
+      const data = await fetchAllPages(() => supabase.from(currentSchema.tableName).select("*"));
+      setRecords(data);
     } catch (err: any) {
       console.error(err);
       showToast("خطأ في الاتصال: " + err?.message, "error");
@@ -1399,7 +1402,7 @@ const DataTableTab = ({ schemaId, supabase, currentUser, logAction, showToast, s
         if (matches >= 2) { headerRowIndex = i; headerFound = true; break; }
       }
       if (!headerFound) {
-        setImportProgress({ total: 0, done: 0, errors: [{ msg: `لم يتم العثور على رأس الجدول. تأكد من أن الملف يحتوي على الأعمدة المطلوبة: ${schemaKeys.slice(0,4).join(" / ")}...` }], success: false });
+        setImportProgress({ total: 0, done: 0, errors: [{ msg: `لم يتم العثور على رأس الجدول. تأكد من أن الملف يحتوي على الأعمدة: ${schemaKeys.slice(0,4).join(" / ")}...` }], success: false });
         setUploadingFile(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
@@ -2136,8 +2139,7 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from(TABLE).select("*");
-      if (error) throw error;
+      const data = await fetchAllPages(() => supabase.from(TABLE).select("*"));
       const grouped: Record<string, BudgetRow[]> = {};
       BUDGET_SHEETS.forEach(s => { grouped[s] = []; });
       (data || []).forEach((r: BudgetRow) => {
@@ -2282,8 +2284,8 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
             return isNaN(n) ? 0 : n;
           };
 
-          const MONTH_COLS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        const months_qty = MONTH_COLS.map(mk => getNum(idxOf(mk)));
+          const BUDGET_MONTH_COLS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          const months_qty = BUDGET_MONTH_COLS.map(mk => getNum(idxOf(mk)));
           const total_qty = months_qty.reduce((s, v) => s + v, 0);
           const price = priceIdx >= 0 ? getNum(priceIdx) : 0;
           const total_cost = total_qty * price;
@@ -2311,18 +2313,30 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         setUploading(false); return;
       }
 
-      const BATCH = 20;
-      let done = 0;
-      for (let i = 0; i < toInsert.length; i += BATCH) {
-        const { error } = await supabase.from(TABLE).insert(toInsert.slice(i, i + BATCH));
-        if (error) {
-          errors.push({ msg: `دفعة ${i/BATCH + 1}: ${error.message}` });
-          console.error("Batch insert error:", error);
+      // ── Upsert: update if item_code+sheet exists, insert if new ──
+      let inserted = 0, updated = 0, done = 0;
+      const errors: any[] = [];
+      // build a flat lookup from already-loaded data
+      const existingFlat: any[] = Object.values(allData).flat();
+      for (const rec of toInsert) {
+        const existing = existingFlat.find((r: any) =>
+          r.sheet === rec.sheet &&
+          (rec.item_code ? r.item_code === rec.item_code : r.item === rec.item)
+        );
+        if (existing) {
+          const { error } = await supabase.from(TABLE).update({ ...rec, updated_at: new Date().toISOString() }).eq("id", existing.id);
+          if (error) errors.push({ msg: `تحديث "${rec.item}": ${error.message}` });
+          else updated++;
+        } else {
+          const { error } = await supabase.from(TABLE).insert([rec]);
+          if (error) errors.push({ msg: `إضافة "${rec.item}": ${error.message}` });
+          else inserted++;
         }
-        done += Math.min(BATCH, toInsert.length - i);
-        setImportProgress({ total: toInsert.length, done, errors, success: false });
+        done++;
+        if (done % 5 === 0 || done === toInsert.length)
+          setImportProgress({ total: toInsert.length, done, errors, success: false });
       }
-      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0 });
+      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0, inserted, updated });
       await fetchAll();
     } catch (e: any) {
       setImportProgress({ total: 0, done: 0, errors: [{ msg: e.message }], success: false });
@@ -2453,7 +2467,7 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
           <div style={{ background:"#e2e8f0", borderRadius:"99px", height:"6px" }}>
             <div style={{ height:"100%", width:`${importProgress.total ? (importProgress.done/importProgress.total)*100 : 0}%`, background: importProgress.success ? "#22c55e" : "#4f46e5", borderRadius:"99px" }} />
           </div>
-          <p style={{ margin:"4px 0 0", fontSize:"11px", color:"#64748b", fontWeight:"700" }}>تم: {importProgress.done} من {importProgress.total}</p>
+          <p style={{ margin:"4px 0 0", fontSize:"11px", color:"#64748b", fontWeight:"700" }}>تم: {importProgress.done} من {importProgress.total} · {(importProgress as any).inserted > 0 ? `✅ جديد: ${(importProgress as any).inserted}` : ""} · {(importProgress as any).updated > 0 ? `♻️ محدّث: ${(importProgress as any).updated}` : ""}</p>
           {importProgress.errors?.length > 0 && (
             <div style={{ background:"#fef9ec", borderRadius:"6px", padding:"6px", marginTop:"6px", fontSize:"11px" }}>
               {importProgress.errors.map((e: any, i: number) => <div key={i}>{e.msg}</div>)}
@@ -2625,7 +2639,7 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [deptFilter, setDeptFilter] = useState("all");
+  const [activeDept, setActiveDept] = useState("all");
   const [importProgress, setImportProgress] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
@@ -2637,9 +2651,8 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from(TABLE).select("*");
-      if (error) throw error;
-      setRecords(data || []);
+      const data = await fetchAllPages(() => supabase.from(TABLE).select("*"));
+      setRecords(data);
     } catch (e: any) {
       showToast("خطأ في تحميل البيانات: " + e.message, "error");
     }
@@ -2654,7 +2667,7 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       const s = searchText.toLowerCase();
       r = r.filter(x => x.item_name?.toLowerCase().includes(s) || x.description?.toLowerCase().includes(s) || x.department?.toLowerCase().includes(s));
     }
-    if (deptFilter !== "all") r = r.filter(x => x.department === deptFilter);
+    if (activeDept !== "all") r = r.filter(x => x.department === activeDept);
     return r;
   }, [records, searchText, deptFilter]);
 
@@ -2821,18 +2834,27 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         setUploading(false); return;
       }
 
-      const BATCH = 20;
-      let done = 0;
+      // ── Upsert: update if item_name+department exists, insert if new ──
+      let inserted = 0, updated = 0, done = 0;
       const errors: any[] = [];
-      for (let i = 0; i < toInsert.length; i += BATCH) {
-        const { error } = await supabase.from(TABLE).insert(toInsert.slice(i, i + BATCH));
-        if (error) {
-          errors.push({ msg: `دفعة ${Math.floor(i/BATCH) + 1}: ${error.message}` });
+      for (const rec of toInsert) {
+        const existing = records.find((r: any) =>
+          r.item_name === rec.item_name && r.department === rec.department
+        );
+        if (existing) {
+          const { error } = await supabase.from(TABLE).update({ ...rec, updated_at: new Date().toISOString() }).eq("id", existing.id);
+          if (error) errors.push({ msg: `تحديث "${rec.item_name}": ${error.message}` });
+          else updated++;
+        } else {
+          const { error } = await supabase.from(TABLE).insert([rec]);
+          if (error) errors.push({ msg: `إضافة "${rec.item_name}": ${error.message}` });
+          else inserted++;
         }
-        done += Math.min(BATCH, toInsert.length - i);
-        setImportProgress({ total: toInsert.length, done, errors, success: false });
+        done++;
+        if (done % 5 === 0 || done === toInsert.length)
+          setImportProgress({ total: toInsert.length, done, errors, success: false });
       }
-      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0 });
+      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0, inserted, updated });
       await fetchAll();
     } catch (e: any) {
       setImportProgress({ total:0, done:0, errors:[{msg:e.message}], success:false });
@@ -2856,7 +2878,19 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
     XLSX.writeFile(wb_new, `الأصول_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
-  const ASSET_DEPTS = ["Admin", ...departments.filter(d => d !== "أخرى")];
+  // Dynamic dept tabs from actual data
+  const uniqueDepts = useMemo(() => {
+    return [...new Set(records.map((r: any) => r.department).filter(Boolean))].sort() as string[];
+  }, [records]);
+
+  const MONTH_KEYS_EN = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const monthlyTotalsForDept = useMemo(() => {
+    const deptRows = activeDept === "all" ? records : records.filter((r: any) => r.department === activeDept);
+    return MONTHS_AR.map((name, idx) => ({
+      name,
+      total: deptRows.reduce((s: number, r: any) => s + (Number(r[MONTH_KEYS_EN[idx]]) || 0), 0)
+    }));
+  }, [records, activeDept]);
 
   return (
     <div className="space-y-3" dir="rtl">
@@ -2881,7 +2915,32 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
           </div>
         </div>
 
-        <div style={{ marginTop:"6px", display:"grid", gridTemplateColumns:"1fr 1fr 1fr 2fr", gap:"6px" }}>
+        {/* ── Dept Tabs ── */}
+        <div style={{ marginTop:"8px", display:"flex", gap:"4px", flexWrap:"wrap", background:"rgba(255,255,255,0.96)", backdropFilter:"blur(8px)", padding:"8px", borderRadius:"10px", border:"1px solid #e2e8f0", boxShadow:"0 4px 12px rgba(0,0,0,0.04)" }}>
+          <button onClick={() => setActiveDept("all")} style={{ padding:"5px 10px", borderRadius:"6px", fontWeight:"800", fontSize:"11px", cursor:"pointer", border:"none",
+            background: activeDept === "all" ? "linear-gradient(90deg,#7c3aed,#6d28d9)" : "#f1f5f9",
+            color: activeDept === "all" ? "white" : "#64748b",
+            boxShadow: activeDept === "all" ? "0 3px 10px rgba(124,58,237,0.3)" : "none" }}>
+            جميع الجهات
+            <span style={{ marginRight:"4px", background:"rgba(255,255,255,0.25)", borderRadius:"99px", padding:"1px 6px", fontSize:"10px" }}>{records.length}</span>
+          </button>
+          {uniqueDepts.map((dept: string) => {
+            const cnt = records.filter((r: any) => r.department === dept).length;
+            const active = activeDept === dept;
+            return (
+              <button key={dept} onClick={() => setActiveDept(dept)} style={{ padding:"5px 10px", borderRadius:"6px", fontWeight:"800", fontSize:"11px", cursor:"pointer", border:"none",
+                background: active ? "linear-gradient(90deg,#7c3aed,#6d28d9)" : "#f1f5f9",
+                color: active ? "white" : "#64748b",
+                boxShadow: active ? "0 3px 10px rgba(124,58,237,0.3)" : "none" }}>
+                {dept}
+                <span style={{ marginRight:"4px", background: active ? "rgba(255,255,255,0.25)" : "#e2e8f0", borderRadius:"99px", padding:"1px 6px", fontSize:"10px", color: active ? "white" : "#64748b" }}>{cnt}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Stats row ── */}
+        <div style={{ marginTop:"6px", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"6px" }}>
           <div style={{ background:"linear-gradient(135deg,#f5f3ff,#ddd6fe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #c4b5fd", textAlign:"center" }}>
             <p style={{ margin:0, color:"#4c1d95", fontWeight:"800", fontSize:"9px" }}>عدد الأصناف</p>
             <h3 style={{ margin:"2px 0 0", color:"#6d28d9", fontSize:"13px", fontWeight:"900" }}>{Number(stats.count).toLocaleString("en-US")}</h3>
@@ -2894,19 +2953,6 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
             <p style={{ margin:0, color:"#1e3a8a", fontWeight:"800", fontSize:"9px" }}>إجمالي التكلفة</p>
             <h3 style={{ margin:"2px 0 0", color:"#1d4ed8", fontSize:"13px", fontWeight:"900" }}>{stats.totalCost.toLocaleString("en-US")} ج</h3>
           </div>
-          <div style={{ background:"white", padding:"6px 8px", borderRadius:"8px", border:"1px solid #e2e8f0" }}>
-            <p style={{ margin:"0 0 3px", fontWeight:"800", fontSize:"9px", color:"#4c1d95" }}>توزيع بحسب الجهة</p>
-            <div style={{ height:"48px" }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={deptData.slice(0,6)} margin={{ top:0, right:0, left:-30, bottom:0 }}>
-                  <XAxis dataKey="name" tick={{ fontSize:8, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize:8 }} axisLine={false} tickLine={false} />
-                  <RechartsTooltip contentStyle={{ borderRadius:"6px", fontSize:"11px" }} />
-                  <Bar dataKey="count" fill="#7c3aed" radius={[4,4,0,0]} barSize={12} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -2916,11 +2962,6 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
           <input type="text" placeholder="بحث في الاسم أو الوصف..." value={searchText} onChange={e => setSearchText(e.target.value)}
             style={{ width:"100%", padding:"8px 28px 8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", outline:"none", fontSize:"12px", fontFamily:"Cairo,sans-serif" }} />
         </div>
-        <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-          style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:"6px", fontSize:"12px", outline:"none", fontFamily:"Cairo,sans-serif" }}>
-          <option value="all">جميع الجهات</option>
-          {ASSET_DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
         {!isViewer && (
           <>
             <button onClick={openAdd}
@@ -3719,9 +3760,8 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from(TABLE).select("*").order("report_date", { ascending: false });
-      if (error) throw error;
-      setRecords(data || []);
+      const data = await fetchAllPages(() => supabase.from(TABLE).select("*").order("report_date", { ascending: false }));
+      setRecords(data);
     } catch (e: any) {
       showToast("خطأ في تحميل بيانات التقارير: " + e.message, "error");
     }
@@ -3998,22 +4038,40 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
         return;
       }
 
-      const BATCH = 50;
-      let done = 0;
-      for (let i = 0; i < toInsert.length; i += BATCH) {
-        const { error } = await supabase.from(TABLE).insert(toInsert.slice(i, i + BATCH));
-        if (error) {
-          errors.push({ msg: `دفعة ${Math.floor(i / BATCH) + 1}: ${error.message}` });
-          console.error("Insert error:", error);
+      // ── Upsert: skip duplicates, update changed, insert new ──
+      // Unique key: voucher_no + item_name (fallback: store_name + item_name + report_date)
+      let inserted = 0, updated = 0, done = 0;
+      for (const rec of toInsert) {
+        const existing = records.find((r: any) => {
+          if (rec.voucher_no && r.voucher_no)
+            return r.voucher_no === rec.voucher_no && r.item_name === rec.item_name;
+          return r.store_name === rec.store_name &&
+                 r.item_name === rec.item_name &&
+                 r.report_date === rec.report_date;
+        });
+        if (existing) {
+          // Check if anything actually changed
+          const changed = existing.quantity !== rec.quantity ||
+                          existing.total_value !== rec.total_value ||
+                          existing.price !== rec.price;
+          if (changed) {
+            const { error } = await supabase.from(TABLE).update({ ...rec, updated_at: new Date().toISOString() }).eq("id", existing.id);
+            if (!error) updated++;
+            else errors.push({ msg: `تحديث "${rec.item_name}": ${error.message}` });
+          }
+          // else identical → skip (no duplicate)
+        } else {
+          const { error } = await supabase.from(TABLE).insert([rec]);
+          if (!error) inserted++;
+          else errors.push({ msg: `إضافة "${rec.item_name}": ${error.message}` });
         }
-        done += Math.min(BATCH, toInsert.length - i);
-        setImportProgress({ total: toInsert.length, done, errors, success: false });
+        done++;
+        if (done % 10 === 0 || done === toInsert.length)
+          setImportProgress({ total: toInsert.length, done, errors, success: false });
+      }
       }
 
-      setImportProgress({
-        total: toInsert.length, done,
-        errors,
-        success: errors.length === 0,
+      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0, inserted, updated });
         month: detectedMonth, year: detectedYear
       });
       await fetchAll();
@@ -4156,6 +4214,26 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
       </div>
 
       {/* رسائل الاستيراد */}
+      <div style={{ background:"white", padding:"12px", borderRadius:"12px", border:"1px solid #e2e8f0" }}>
+        <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#4c1d95" }}>
+          📊 الكميات الشهرية{activeDept !== "all" ? ` — ${activeDept}` : " — جميع الجهات"}
+        </h3>
+        <div style={{ height:"140px" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={monthlyTotalsForDept} margin={{ top:0, right:0, left:-20, bottom:0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" tick={{ fontSize:9, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize:9, fill:"#94a3b8" }} axisLine={false} tickLine={false} />
+              <RechartsTooltip
+                formatter={(v: any) => [Number(v).toLocaleString("en-US"), "الكمية"]}
+                contentStyle={{ borderRadius:"8px", border:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.1)", fontSize:"11px" }}
+              />
+              <Bar dataKey="total" radius={[6,6,0,0]} barSize={16} fill="#7c3aed" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {importProgress && (
         <div style={{ background:"white", borderRadius:"10px", padding:"12px", border:`2px solid ${importProgress.success ? "#22c55e" : "#3b82f6"}` }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px" }}>
@@ -4169,7 +4247,7 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
           <div style={{ background:"#e2e8f0", borderRadius:"99px", height:"6px", overflow:"hidden" }}>
             <div style={{ height:"100%", width:`${importProgress.total ? (importProgress.done/importProgress.total)*100 : 0}%`, background: importProgress.success ? "#22c55e" : "#4f46e5", borderRadius:"99px", transition:"width 0.3s" }} />
           </div>
-          <p style={{ margin:"4px 0 0", fontSize:"11px", color:"#64748b", fontWeight:"700" }}>تم: {importProgress.done} من {importProgress.total}</p>
+          <p style={{ margin:"4px 0 0", fontSize:"11px", color:"#64748b", fontWeight:"700" }}>تم: {importProgress.done} من {importProgress.total} · {(importProgress as any).inserted > 0 ? `✅ جديد: ${(importProgress as any).inserted}` : ""} · {(importProgress as any).updated > 0 ? `♻️ محدّث: ${(importProgress as any).updated}` : ""}</p>
           {importProgress.errors?.length > 0 && (
             <div style={{ background:"#fef9ec", borderRadius:"6px", padding:"8px", marginTop:"6px", fontSize:"11px", color:"#78350f", maxHeight:"100px", overflowY:"auto" }}>
               {importProgress.errors.map((e: any, i: number) => <div key={i}>• {e.msg}</div>)}
