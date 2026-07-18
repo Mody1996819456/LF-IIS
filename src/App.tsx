@@ -122,6 +122,39 @@ const statuses = ["لم يتم", "قيد التنفيذ", "تم التنفيذ",
 const units = ["عدد", "كيس", "علبة", "صندوق", "كيلو", "متر", "ساعة", "أخرى"];
 const years = Array.from({ length: 21 }, (_, i) => String(2015 + i));
 
+// ==================== UNIFIED STAT CARD (used across Dashboard, Budget, Assets, Admin Reports) ====================
+const STAT_PALETTE: Record<string, { bg: string; border: string; iconBg: string; accent: string; text: string }> = {
+  blue:    { bg: "#eff6ff", border: "#bfdbfe", iconBg: "#dbeafe", accent: "#2563eb", text: "#1e3a8a" },
+  purple:  { bg: "#f5f3ff", border: "#ddd6fe", iconBg: "#ede9fe", accent: "#7c3aed", text: "#4c1d95" },
+  green:   { bg: "#f0fdf4", border: "#bbf7d0", iconBg: "#dcfce7", accent: "#16a34a", text: "#14532d" },
+  orange:  { bg: "#fff7ed", border: "#fed7aa", iconBg: "#ffedd5", accent: "#ea580c", text: "#7c2d12" },
+  emerald: { bg: "#ecfdf5", border: "#a7f3d0", iconBg: "#d1fae5", accent: "#059669", text: "#064e3b" },
+  amber:   { bg: "#fffbeb", border: "#fde68a", iconBg: "#fef3c7", accent: "#d97706", text: "#78350f" },
+  violet:  { bg: "#f5f3ff", border: "#ddd6fe", iconBg: "#ede9fe", accent: "#7c3aed", text: "#4c1d95" },
+  teal:    { bg: "#f0fdfa", border: "#99f6e4", iconBg: "#ccfbf1", accent: "#0d9488", text: "#134e4a" },
+  red:     { bg: "#fef2f2", border: "#fecaca", iconBg: "#fee2e2", accent: "#dc2626", text: "#7f1d1d" },
+};
+
+const StatCard = ({ icon: Icon, label, value, subtext, color = "blue" }: { icon?: any; label: string; value: React.ReactNode; subtext?: React.ReactNode; color?: string }) => {
+  const c = STAT_PALETTE[color] || STAT_PALETTE.blue;
+  return (
+    <div style={{ background: c.bg, padding: "10px 12px", borderRadius: "12px", border: `1px solid ${c.border}`, textAlign: "center", position: "relative", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div style={{ position: "absolute", top: 0, right: 0, width: "4px", height: "100%", background: c.accent }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+        {Icon ? <div style={{ padding: "5px", background: c.iconBg, color: c.accent, borderRadius: "8px", display: "flex" }}><Icon size={15} /></div> : <span />}
+        <p style={{ margin: 0, color: c.text, fontWeight: 800, fontSize: "11px" }}>{label}</p>
+      </div>
+      <h3 style={{ margin: "2px 0 0", color: c.accent, fontSize: "18px", fontWeight: 900 }}>{value}</h3>
+      {subtext && <p style={{ margin: "3px 0 0", color: c.text, fontSize: "10px", fontWeight: 700, opacity: 0.85 }}>{subtext}</p>}
+    </div>
+  );
+};
+
+const ChartHeader = ({ children, color = "#4c1d95", bg = "#f5f3ff" }: { children: React.ReactNode; color?: string; bg?: string }) => (
+  <h3 style={{ margin: "0 0 10px", fontWeight: 800, fontSize: "12px", color, background: bg, padding: "8px 10px", borderRadius: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
+    {children}
+  </h3>
+);
 
 // ==================== ALL SYSTEM TABLES ====================
 const ALL_SYSTEM_TABLES = [
@@ -981,82 +1014,13 @@ const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supaba
            </div>
 
            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-               {/* طلبات الشراء */}
-               <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-blue-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-blue-100/80 text-blue-600 rounded-lg"><ShoppingCart size={16} /></div>
-                      <p className="text-blue-950 font-black text-[11px]">طلبات الشراء</p>
-                  </div>
-                  <h3 className="text-xl font-black text-blue-600 my-1">{englishToArabic(purchases.length)}</h3>
-                  <p className="text-[10px] text-blue-800 font-black">{englishToArabic(completedPurchases)} منجز · {englishToArabic(pendingPurchases)} معلق</p>
-               </div>
-
-               {/* إجمالي الطلبات */}
-               <div className="bg-purple-50/40 p-3 rounded-xl border border-purple-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-purple-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-purple-100/80 text-purple-600 rounded-lg"><ListOrdered size={16} /></div>
-                      <p className="text-purple-950 font-black text-[11px]">إجمالي الطلبات</p>
-                  </div>
-                  <h3 className="text-xl font-black text-purple-600 my-1">{englishToArabic(summary.length)}</h3>
-                  <p className="text-[10px] text-purple-800 font-black">{englishToArabic(completedSummary)} منجز · {englishToArabic(pendingSummary)} معلق</p>
-               </div>
-
-               {/* الخضار الأسبوعي */}
-               <div className="bg-green-50/40 p-3 rounded-xl border border-green-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-green-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-green-100/80 text-green-600 rounded-lg"><Leaf size={16} /></div>
-                      <p className="text-green-950 font-black text-[11px]">الخضار الأسبوعي</p>
-                  </div>
-                  <h3 className="text-xl font-black text-green-600 my-1">{englishToArabic(vegetables.length)}</h3>
-                  <p className="text-[10px] text-green-800 font-black">{englishToArabic(completedVeg)} منجز</p>
-               </div>
-
-               {/* الأصول */}
-               <div className="bg-orange-50/40 p-3 rounded-xl border border-orange-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-orange-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-orange-100/80 text-orange-600 rounded-lg"><Package size={16} /></div>
-                      <p className="text-orange-950 font-black text-[11px]">الأصول</p>
-                  </div>
-                  <h3 className="text-xl font-black text-orange-600 my-1">{englishToArabic(assets.length)}</h3>
-                  <p className="text-[10px] text-orange-800 font-black">{englishToArabic(completedAssets)} إجمالي</p>
-               </div>
-
-               {/* نسبة الإنجاز */}
-               <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-emerald-100/80 text-emerald-600 rounded-lg"><CheckCircle size={16} /></div>
-                      <p className="text-emerald-950 font-black text-[11px]">نسبة الإنجاز</p>
-                  </div>
-                  <h3 className="text-xl font-black text-emerald-600 my-1">{englishToArabic(completionRate)}%</h3>
-                  <p className="text-[10px] text-emerald-800 font-black">{englishToArabic(totalCompleted)} من {englishToArabic(totalActionable)}</p>
-               </div>
-
-               {/* الموازنة */}
-               <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-amber-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-amber-100/80 text-amber-600 rounded-lg"><BarChart2 size={16} /></div>
-                      <p className="text-amber-950 font-black text-[11px]">الموازنة</p>
-                  </div>
-                  <h3 className="text-xl font-black text-amber-600 my-1">{englishToArabic(budgetRows.length)}</h3>
-                  <p className="text-[10px] text-amber-800 font-black">{budgetTotalCost.toLocaleString("en-US")} ج</p>
-               </div>
-
-               {/* الأصول الجديدة */}
-               <div className="bg-violet-50/40 p-3 rounded-xl border border-violet-200 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1 h-full bg-violet-500 rounded-r-xl"></div>
-                  <div className="flex justify-between items-center mb-1.5">
-                      <div className="p-1.5 bg-violet-100/80 text-violet-600 rounded-lg"><Building2 size={16} /></div>
-                      <p className="text-violet-950 font-black text-[11px]">الأصول الجديدة</p>
-                  </div>
-                  <h3 className="text-xl font-black text-violet-600 my-1">{englishToArabic(assetsNewRows.length)}</h3>
-                  <p className="text-[10px] text-violet-800 font-black">{assetsNewTotalCost.toLocaleString("en-US")} ج</p>
-               </div>
+               <StatCard icon={ShoppingCart} label="طلبات الشراء" value={englishToArabic(purchases.length)} subtext={`${englishToArabic(completedPurchases)} منجز · ${englishToArabic(pendingPurchases)} معلق`} color="blue" />
+               <StatCard icon={ListOrdered} label="إجمالي الطلبات" value={englishToArabic(summary.length)} subtext={`${englishToArabic(completedSummary)} منجز · ${englishToArabic(pendingSummary)} معلق`} color="purple" />
+               <StatCard icon={Leaf} label="الخضار الأسبوعي" value={englishToArabic(vegetables.length)} subtext={`${englishToArabic(completedVeg)} منجز`} color="green" />
+               <StatCard icon={Package} label="الأصول" value={englishToArabic(assets.length)} subtext={`${englishToArabic(completedAssets)} إجمالي`} color="orange" />
+               <StatCard icon={CheckCircle} label="نسبة الإنجاز" value={`${englishToArabic(completionRate)}%`} subtext={`${englishToArabic(totalCompleted)} من ${englishToArabic(totalActionable)}`} color="emerald" />
+               <StatCard icon={BarChart2} label="الموازنة" value={englishToArabic(budgetRows.length)} subtext={`${budgetTotalCost.toLocaleString("en-US")} ج`} color="amber" />
+               <StatCard icon={Building2} label="الأصول الجديدة" value={englishToArabic(assetsNewRows.length)} subtext={`${assetsNewTotalCost.toLocaleString("en-US")} ج`} color="violet" />
             </div>
 
            <div className="bg-white p-4 rounded-xl border shadow-sm">
@@ -1307,8 +1271,15 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
     if (yearFilter !== "all") result = result.filter(r => String(r.year) === yearFilter);
 
     result.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+      const aNum = aVal === null || aVal === undefined || aVal === "" ? NaN : Number(aVal);
+      const bNum = bVal === null || bVal === undefined || bVal === "" ? NaN : Number(bVal);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortDir === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      aVal = (aVal ?? "");
+      bVal = (bVal ?? "");
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
@@ -2581,18 +2552,9 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
         </div>
 
         <div style={{ marginTop:"6px", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"6px" }}>
-          <div style={{ background:"linear-gradient(135deg,#fff7ed,#fed7aa)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #fdba74", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#92400e", fontWeight:"800", fontSize:"9px" }}>عدد الأصناف</p>
-            <h3 style={{ margin:"2px 0 0", color:"#c2410c", fontSize:"13px", fontWeight:"900" }}>{Number(sheetTotals.count).toLocaleString("en-US")}</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#f0fdf4,#bbf7d0)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #86efac", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#14532d", fontWeight:"800", fontSize:"9px" }}>إجمالي الكميات</p>
-            <h3 style={{ margin:"2px 0 0", color:"#15803d", fontSize:"13px", fontWeight:"900" }}>{Number(sheetTotals.totalQty).toLocaleString("en-US")}</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#eff6ff,#bfdbfe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #93c5fd", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#1e3a8a", fontWeight:"800", fontSize:"9px" }}>إجمالي التكلفة</p>
-            <h3 style={{ margin:"2px 0 0", color:"#1d4ed8", fontSize:"13px", fontWeight:"900" }}>{Number(sheetTotals.totalCost).toLocaleString("en-US")} ج</h3>
-          </div>
+          <StatCard icon={ListOrdered} label="عدد الأصناف" value={Number(sheetTotals.count).toLocaleString("en-US")} color="orange" />
+          <StatCard icon={Package} label="إجمالي الكميات" value={Number(sheetTotals.totalQty).toLocaleString("en-US")} color="green" />
+          <StatCard icon={BarChart2} label="إجمالي التكلفة" value={`${Number(sheetTotals.totalCost).toLocaleString("en-US")} ج`} color="blue" />
         </div>
       </div>
 
@@ -2615,7 +2577,7 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
       )}
 
       <div style={{ background:"white", padding:"12px", borderRadius:"12px", border:"1px solid #e2e8f0" }}>
-        <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#92400e" }}>📊 الكميات الشهرية - {BUDGET_SHEET_LABELS[activeSheet]}</h3>
+        <ChartHeader color="#92400e" bg="#fff7ed">📊 الكميات الشهرية - {BUDGET_SHEET_LABELS[activeSheet]}</ChartHeader>
         <div style={{ height:"160px" }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyTotals} margin={{ top:0, right:0, left:-20, bottom:0 }}>
@@ -3123,26 +3085,17 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
 
         {/* ── Stats row ── */}
         <div style={{ marginTop:"6px", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"6px" }}>
-          <div style={{ background:"linear-gradient(135deg,#f5f3ff,#ddd6fe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #c4b5fd", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#4c1d95", fontWeight:"800", fontSize:"9px" }}>عدد الأصناف</p>
-            <h3 style={{ margin:"2px 0 0", color:"#6d28d9", fontSize:"13px", fontWeight:"900" }}>{Number(stats.count).toLocaleString("en-US")}</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#f0fdf4,#bbf7d0)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #86efac", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#14532d", fontWeight:"800", fontSize:"9px" }}>إجمالي الكميات</p>
-            <h3 style={{ margin:"2px 0 0", color:"#15803d", fontSize:"13px", fontWeight:"900" }}>{stats.totalQty.toLocaleString("en-US")}</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#eff6ff,#bfdbfe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #93c5fd", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#1e3a8a", fontWeight:"800", fontSize:"9px" }}>إجمالي التكلفة</p>
-            <h3 style={{ margin:"2px 0 0", color:"#1d4ed8", fontSize:"13px", fontWeight:"900" }}>{stats.totalCost.toLocaleString("en-US")} ج</h3>
-          </div>
+          <StatCard icon={ListOrdered} label="عدد الأصناف" value={Number(stats.count).toLocaleString("en-US")} color="violet" />
+          <StatCard icon={Package} label="إجمالي الكميات" value={stats.totalQty.toLocaleString("en-US")} color="green" />
+          <StatCard icon={BarChart2} label="إجمالي التكلفة" value={`${stats.totalCost.toLocaleString("en-US")} ج`} color="blue" />
         </div>
       </div>
 
       {/* ── الرسم البياني الشهري ── */}
       <div style={{ background:"white", padding:"12px", borderRadius:"12px", border:"1px solid #e2e8f0" }}>
-        <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#4c1d95" }}>
+        <ChartHeader color="#4c1d95" bg="#f5f3ff">
           📊 الكميات الشهرية{activeDept !== "all" ? ` — ${activeDept}` : " — جميع الجهات"}
-        </h3>
+        </ChartHeader>
         <div style={{ height:"140px" }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyTotalsForDept} margin={{ top:0, right:0, left:-20, bottom:0 }}>
@@ -3442,60 +3395,55 @@ function AdminAffairsSystemInner() {
     }
   };
 
-  // ==================== FIXED: Restore ALL system tables ====================
+  // ==================== FIXED: Restore ALL system tables (upsert, not blind insert) ====================
   const handleRestoreAll = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setConfirmDialog({
       title: "استعادة النظام",
-      msg: "سيتم استعادة النظام بالكامل من الملف المرفق، هل تريد المتابعة؟",
+      msg: "سيتم تحديث السجلات الموجودة وإضافة الناقصة من الملف المرفق. أي بيانات أُضيفت للنظام بعد أخذ هذه النسخة ستبقى كما هي دون حذف. هل تريد المتابعة؟",
       onConfirm: () => {
         const reader = new FileReader();
         reader.onload = async (event) => {
           try {
             const data = JSON.parse(event.target?.result as string);
             setIsSystemProcessing(true);
+            const failedTables: string[] = [];
+
+            const restoreTable = async (tableName: string, records: any[]) => {
+              if (!records || records.length === 0) return;
+              // Keep the original id from the backup so this becomes an
+              // update for records that still exist, and an insert for
+              // records that were deleted since the backup was taken.
+              // Records currently in the table but absent from the backup
+              // (added after the backup) are never touched or removed.
+              const BATCH = 50;
+              for (let i = 0; i < records.length; i += BATCH) {
+                const { error } = await supabase.from(tableName as any).upsert(records.slice(i, i + BATCH), { onConflict: "id" });
+                if (error) {
+                  console.error(`Restore error for ${tableName}:`, error);
+                  failedTables.push(tableName);
+                  break;
+                }
+              }
+            };
 
             // Restore schema tables
             for (const key of Object.keys(data)) {
               if (schemas[key]) {
-                const records = data[key];
-                if (records && records.length > 0) {
-                  // Remove existing IDs to let Supabase generate new ones
-                  const cleanRecords = records.map((r: any) => {
-                    const clean = { ...r };
-                    delete clean.id; // Let Supabase generate new UUIDs
-                    return clean;
-                  });
-
-                  const BATCH = 50;
-                  for (let i = 0; i < cleanRecords.length; i += BATCH) {
-                    const { error } = await supabase.from(schemas[key].tableName).insert(cleanRecords.slice(i, i + BATCH));
-                    if (error) {
-                      console.error(`Restore error for ${schemas[key].tableName}:`, error);
-                      showToast(`خطأ في استعادة ${schemas[key].title}: ${error.message}`, "error");
-                    }
-                  }
-                }
+                await restoreTable(schemas[key].tableName, data[key]);
               }
-
               // Restore other tables
-              if (["budget_rows", "assets_rows", "audit_log"].includes(key) && data[key]?.length > 0) {
-                const cleanRecords = data[key].map((r: any) => {
-                  const clean = { ...r };
-                  delete clean.id;
-                  return clean;
-                });
-
-                const BATCH = 50;
-                for (let i = 0; i < cleanRecords.length; i += BATCH) {
-                  const { error } = await supabase.from(key as any).insert(cleanRecords.slice(i, i + BATCH));
-                  if (error) {
-                    console.error(`Restore error for ${key}:`, error);
-                  }
-                }
+              if (["budget_rows", "assets_rows", "audit_log", "admin_reports"].includes(key)) {
+                await restoreTable(key, data[key]);
               }
+            }
+
+            if (failedTables.length > 0) {
+              showToast("فشلت استعادة بعض الجداول: " + failedTables.join(", "), "error");
+              setIsSystemProcessing(false);
+              return;
             }
 
             await logAction("system_restore", "all_tables", null);
@@ -4445,22 +4393,10 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
 
         {/* بطاقات الإحصاء */}
         <div style={{ marginTop:"6px", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"6px" }}>
-          <div style={{ background:"linear-gradient(135deg,#f0fdfa,#ccfbf1)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #5eead4", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#0f766e", fontWeight:"800", fontSize:"9px" }}>إجمالي السجلات</p>
-            <h3 style={{ margin:"2px 0 0", color:"#0d9488", fontSize:"14px", fontWeight:"900" }}>{stats.count.toLocaleString("en-US")}</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#fffbeb,#fef3c7)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #fcd34d", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#92400e", fontWeight:"800", fontSize:"9px" }}>إجمالي القيمة</p>
-            <h3 style={{ margin:"2px 0 0", color:"#d97706", fontSize:"13px", fontWeight:"900" }}>{stats.totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })} ج</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#f5f3ff,#ede9fe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #c4b5fd", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#4c1d95", fontWeight:"800", fontSize:"9px" }}>عدد الأصناف</p>
-            <h3 style={{ margin:"2px 0 0", color:"#6d28d9", fontSize:"14px", fontWeight:"900" }}>{stats.uniqueItems.toLocaleString("en-US")}</h3>
-          </div>
-          <div style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe)", padding:"6px 8px", borderRadius:"8px", border:"1px solid #93c5fd", textAlign:"center" }}>
-            <p style={{ margin:0, color:"#1e3a8a", fontWeight:"800", fontSize:"9px" }}>عدد أذونات الصرف</p>
-            <h3 style={{ margin:"2px 0 0", color:"#1d4ed8", fontSize:"14px", fontWeight:"900" }}>{stats.uniqueVouchers.toLocaleString("en-US")}</h3>
-          </div>
+          <StatCard icon={ListOrdered} label="إجمالي السجلات" value={stats.count.toLocaleString("en-US")} color="teal" />
+          <StatCard icon={BarChart2} label="إجمالي القيمة" value={`${stats.totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })} ج`} color="amber" />
+          <StatCard icon={Package} label="عدد الأصناف" value={stats.uniqueItems.toLocaleString("en-US")} color="violet" />
+          <StatCard icon={FileDown} label="عدد أذونات الصرف" value={stats.uniqueVouchers.toLocaleString("en-US")} color="blue" />
         </div>
 
         {/* شريط الشهور */}
@@ -4516,7 +4452,7 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div style={{ background:"white", borderRadius:"12px", padding:"12px", border:"1px solid #e2e8f0" }}>
-            <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#0f766e" }}>📊 المصروفات حسب المخزن</h3>
+            <ChartHeader color="#0f766e" bg="#f0fdfa">📊 المصروفات حسب المخزن</ChartHeader>
             <div style={{ height:"180px" }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={storeChartData} margin={{ top:0, right:0, left:-15, bottom:0 }}>
@@ -4532,7 +4468,7 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
             </div>
           </div>
           <div style={{ background:"white", borderRadius:"12px", padding:"12px", border:"1px solid #e2e8f0" }}>
-            <h3 style={{ margin:"0 0 8px", fontWeight:"800", fontSize:"12px", color:"#0f766e" }}>🎯 المصروفات حسب Task</h3>
+            <ChartHeader color="#0f766e" bg="#f0fdfa">🎯 المصروفات حسب Task</ChartHeader>
             <div style={{ height:"180px" }}>
               <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
