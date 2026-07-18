@@ -3402,14 +3402,14 @@ function AdminAffairsSystemInner() {
 
     setConfirmDialog({
       title: "استعادة النظام",
-      msg: "سيتم تحديث السجلات الموجودة وإضافة الناقصة من الملف المرفق. أي بيانات أُضيفت للنظام بعد أخذ هذه النسخة ستبقى كما هي دون حذف. هل تريد المتابعة؟",
+      msg: "سيتم تحديث السجلات الموجودة وإضافة الناقصة من الملف المرفق. أي بيانات أُضيفت للنظام بعد أخذ هذه النسخة ستبقى كما هي دون حذف. ملاحظة: حسابات المستخدمين لا تُستعاد تلقائياً لأسباب أمنية ويجب إعادة إضافتها يدوياً إن لزم. هل تريد المتابعة؟",
       onConfirm: () => {
         const reader = new FileReader();
         reader.onload = async (event) => {
           try {
             const data = JSON.parse(event.target?.result as string);
             setIsSystemProcessing(true);
-            const failedTables: string[] = [];
+            const failedTables: { table: string; message: string }[] = [];
 
             const restoreTable = async (tableName: string, records: any[]) => {
               if (!records || records.length === 0) return;
@@ -3423,15 +3423,18 @@ function AdminAffairsSystemInner() {
                 const { error } = await supabase.from(tableName as any).upsert(records.slice(i, i + BATCH), { onConflict: "id" });
                 if (error) {
                   console.error(`Restore error for ${tableName}:`, error);
-                  failedTables.push(tableName);
+                  failedTables.push({ table: tableName, message: error.message });
                   break;
                 }
               }
             };
 
-            // Restore schema tables
+            // Restore schema tables — skip admin_affairs_managers (user accounts):
+            // it's protected by database security rules so bulk-restoring
+            // arbitrary credentials/permissions isn't allowed, and shouldn't be
+            // bypassed even from this admin screen. Manage users individually instead.
             for (const key of Object.keys(data)) {
-              if (schemas[key]) {
+              if (schemas[key] && schemas[key].tableName !== "admin_affairs_managers") {
                 await restoreTable(schemas[key].tableName, data[key]);
               }
               // Restore other tables
@@ -3440,15 +3443,15 @@ function AdminAffairsSystemInner() {
               }
             }
 
-            if (failedTables.length > 0) {
-              showToast("فشلت استعادة بعض الجداول: " + failedTables.join(", "), "error");
-              setIsSystemProcessing(false);
-              return;
-            }
-
             await logAction("system_restore", "all_tables", null);
-            showToast("تمت الاستعادة بنجاح، يتم تحديث الصفحة...", "success");
-            setTimeout(() => window.location.reload(), 1500);
+
+            if (failedTables.length > 0) {
+              const details = failedTables.map(f => `${f.table}: ${f.message}`).join(" | ");
+              showToast("تمت استعادة باقي البيانات، لكن فشلت هذه الجداول: " + details, "error");
+            } else {
+              showToast("تمت الاستعادة بنجاح، يتم تحديث الصفحة...", "success");
+            }
+            setTimeout(() => window.location.reload(), 1800);
           } catch (err: any) {
             showToast("خطأ في الاستعادة: " + err.message, "error");
             setIsSystemProcessing(false);
