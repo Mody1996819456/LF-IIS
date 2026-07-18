@@ -84,8 +84,8 @@ const parseImportDate = (value: any): string | null => {
     if (value === null || value === undefined || value === "") return null;
     if (typeof value === "number") {
       if (value <= 0) return null;
-      const excelEpoch = new Date(1899, 11, 30);
-      const date = new Date(excelEpoch.getTime() + value * 86400000);
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const date = new Date(excelEpoch + value * 86400000);
       return isNaN(date.getTime()) ? null : date.toISOString().split("T")[0];
     }
     if (value instanceof Date) {
