@@ -1883,7 +1883,7 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       )}
     </div>
   );
-};
+});
 
 // ==================== BUDGET SECTION ====================
 
