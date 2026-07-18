@@ -4069,11 +4069,8 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
         if (done % 10 === 0 || done === toInsert.length)
           setImportProgress({ total: toInsert.length, done, errors, success: false });
       }
-      }
 
-      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0, inserted, updated });
-        month: detectedMonth, year: detectedYear
-      });
+      setImportProgress({ total: toInsert.length, done, errors, success: errors.length === 0, inserted, updated, month: detectedMonth, year: detectedYear });
       await fetchAll();
     } catch (e: any) {
       console.error("Import error:", e);
