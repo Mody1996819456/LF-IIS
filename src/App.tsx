@@ -896,37 +896,60 @@ const fetchAllPages = async (makeQuery: () => any): Promise<any[]> => {
   }
   return all;
 };
+
+// Build a narrow projection for table tabs instead of transferring every DB column.
+// Password is intentionally excluded because manager credentials belong to Supabase Auth.
+const getSchemaSelect = (schema: any): string => {
+  const columns = (schema?.fields || [])
+    .map((field: any) => field.key)
+    .filter((key: string) => key && key !== "password");
+  return Array.from(new Set(["id", ...columns])).join(",");
+};
 // ──────────────────────────────────────────────────────────────────────────────
 
 const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supabase: any, systemMenu?: React.ReactNode, dashboardCache?: React.MutableRefObject<any> }) => {
-   const [stats, setStats] = useState(() => dashboardCache?.current || { purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [], admin_reports: [] });
+   const EMPTY_STATS = { purchases: [], summary: [], vegetables: [], assets: [], budget: [], assets_new: [], admin_reports: [] };
+   const [stats, setStats] = useState(() => dashboardCache?.current || EMPTY_STATS);
    const [loading, setLoading] = useState(!dashboardCache?.current);
+   const [analysisReady, setAnalysisReady] = useState(Boolean(dashboardCache?.current));
 
    useEffect(() => {
        if (dashboardCache?.current) return; // Use cached data — skip network call
+       let mounted = true;
        const fetchStats = async () => {
            setLoading(true);
            try {
-           const [purchases_d, summary_d, vegetables_d, assets_d, budget_d, assetsNew_d, adminRep_d] = await Promise.all([
+             // Load the four datasets needed for the first dashboard paint first.
+             const [purchases_d, summary_d, vegetables_d, assets_d] = await Promise.all([
                fetchAllPages(() => supabase.from("admin_affairs_purchases").select("id,system_request_no,admin_request_no,request_date,item_name,unit,quantity_requested,quantity_executed,quantity_remaining,year,executor,requesting_department,receipt_date,received_by").order('request_date', { ascending: false })),
                fetchAllPages(() => supabase.from("admin_affairs_summary").select("id,request_number,request_date,execution_date,description,year,status,remaining_items")),
                fetchAllPages(() => supabase.from("admin_affairs_vegetables").select("id,item_name,year,executor,requesting_department,quantity_requested,quantity_executed")),
                fetchAllPages(() => supabase.from("admin_affairs_assets").select("id,item_name,year,requesting_department,quantity_added")),
+             ]);
+             const baseStats = { ...EMPTY_STATS, purchases: purchases_d, summary: summary_d, vegetables: vegetables_d, assets: assets_d };
+             if (!mounted) return;
+             setStats(baseStats);
+             setLoading(false);
+
+             // Load the larger analytical datasets after the core dashboard is visible.
+             const [budget_d, assetsNew_d, adminRep_d] = await Promise.all([
                fetchAllPages(() => supabase.from("budget_rows").select("id,item,item_code,sheet,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,price,total_cost")),
                fetchAllPages(() => supabase.from("assets_rows").select("id,item_name,department,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,price,total_cost")),
                fetchAllPages(() => supabase.from("admin_reports").select("id,report_month,report_year,store_name,task,task_description,total_value"))
-           ]);
-           const _ds = { purchases: purchases_d, summary: summary_d, vegetables: vegetables_d, assets: assets_d, budget: budget_d, assets_new: assetsNew_d, admin_reports: adminRep_d };
-           if (dashboardCache) dashboardCache.current = _ds;
-           setStats(_ds);
+             ]);
+             const completeStats = { ...baseStats, budget: budget_d, assets_new: assetsNew_d, admin_reports: adminRep_d };
+             if (!mounted) return;
+             if (dashboardCache) dashboardCache.current = completeStats;
+             setStats(completeStats);
+             setAnalysisReady(true);
            } catch (err: any) {
              console.error("Dashboard fetch error:", err);
-           } finally {
-             setLoading(false);
+             if (mounted) setLoading(false);
            }
        };
        fetchStats();
-   }, [supabase]);
+       return () => { mounted = false; };
+   }, [supabase, dashboardCache]);
 
    if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>;
 
@@ -1145,9 +1168,16 @@ const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supaba
                </div>
            </div>
 
-           <BudgetAssetsInsights budgetRows={budgetRows} assetsNewRows={assetsNewRows} />
-
-           <AdminReportsInsights adminReports={adminReports} />
+           {analysisReady ? (
+             <>
+               <BudgetAssetsInsights budgetRows={budgetRows} assetsNewRows={assetsNewRows} />
+               <AdminReportsInsights adminReports={adminReports} />
+             </>
+           ) : (
+             <div className="bg-white p-4 rounded-xl border shadow-sm text-center text-slate-500 text-sm font-bold">
+               جاري تجهيز التحليلات التفصيلية...
+             </div>
+           )}
 
            <div className="bg-white p-4 rounded-xl border shadow-sm">
                <h3 className="text-base font-black mb-3 text-purple-900 bg-purple-100/60 p-3 rounded-xl flex items-center justify-end gap-2">
@@ -1241,7 +1271,7 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
     }
     setLoading(true);
     try {
-      const data = await fetchAllPages(() => supabase.from(currentSchema.tableName).select("*"));
+      const data = await fetchAllPages(() => supabase.from(currentSchema.tableName).select(getSchemaSelect(currentSchema)));
       if (tabDataCache?.current) tabDataCache.current[schemaId] = data;
       setRecords(data);
     } catch (err: any) {
@@ -2223,7 +2253,7 @@ const BudgetSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchAllPages(() => supabase.from(TABLE).select("*"));
+      const data = await fetchAllPages(() => supabase.from(TABLE).select("id,item_code,item,unit,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,price,total_cost,sheet"));
       const grouped: Record<string, BudgetRow[]> = {};
       BUDGET_SHEETS.forEach(s => { grouped[s] = []; });
       (data || []).forEach((r: BudgetRow) => {
@@ -2769,7 +2799,7 @@ const AssetsSection = ({ supabase, currentUser, showToast, setConfirmDialog }: a
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchAllPages(() => supabase.from(TABLE).select("*"));
+      const data = await fetchAllPages(() => supabase.from(TABLE).select("id,item_name,description,unit,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,total_qty,department,price,total_cost"));
       setRecords(data);
     } catch (e: any) {
       showToast("خطأ في تحميل البيانات: " + e.message, "error");
@@ -3318,20 +3348,27 @@ function AdminAffairsSystemInner() {
   useEffect(() => {
     // Restore session from Supabase Auth and resolve role.
     let mounted = true;
+    let resolvedUid: string | null = null;
     const resolveUser = async (session: any) => {
       if (!session?.user) {
+        resolvedUid = null;
         if (mounted) { setCurrentUser(null); setCurrentView("login"); }
         return;
       }
       const uid = session.user.id;
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+      // getSession() and onAuthStateChange() can both fire on mount.
+      if (resolvedUid === uid) return;
+      resolvedUid = uid;
+      const [{ data: roles }, { data: mgr }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", uid),
+        supabase.from("admin_affairs_managers").select("name,permissions").eq("user_id", uid).maybeSingle(),
+      ]);
       const roleSet = new Set((roles || []).map((r: any) => r.role));
       let appRole: "owner" | "manager" | "viewer" = "viewer";
       if (roleSet.has("owner")) appRole = "owner";
       else if (roleSet.has("manager")) appRole = "manager";
       let name = session.user.email || "";
       let permissions: string | undefined;
-      const { data: mgr } = await supabase.from("admin_affairs_managers").select("name,permissions").eq("user_id", uid).maybeSingle();
       if (mgr) { name = mgr.name || name; permissions = mgr.permissions || undefined; }
       if (!mounted) return;
       setCurrentUser({ id: uid, role: appRole, name, permissions });
@@ -3965,7 +4002,7 @@ const AdminReportsSection = ({ supabase, currentUser, showToast, setConfirmDialo
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchAllPages(() => supabase.from(TABLE).select("*").order("report_date", { ascending: false }));
+      const data = await fetchAllPages(() => supabase.from(TABLE).select("id,report_date,report_month,report_year,store_name,task,task_description,item_name,voucher_no,quantity,price,total_value").order("report_date", { ascending: false }));
       setRecords(data);
     } catch (e: any) {
       showToast("خطأ في تحميل بيانات التقارير: " + e.message, "error");
