@@ -401,19 +401,20 @@ textarea {
   overflow: hidden !important;
   margin: 0 !important;
   padding: 0 !important;
-  background: #702df0 url('/login-reference.png') center / contain no-repeat !important;
+  background: #702df0 url('/login-reference.png') center / cover no-repeat !important;
 }
 
 .login-reference-screen > div:first-child {
   display: block !important;
   position: relative !important;
-  width: min(100vw, calc(100vh * 1.38005391)) !important;
-  aspect-ratio: 1024 / 742 !important;
-  max-height: 100vh !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  aspect-ratio: auto !important;
+  max-height: none !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
-  background: #702df0 url('/login-reference.png') center / cover no-repeat !important;
+  background: transparent !important;
 }
 
 .login-reference-screen > div:first-child > div:first-child {
@@ -561,8 +562,13 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .login-reference-screen {
+    background-position: 63% center !important;
+  }
+
   .login-reference-screen > div:first-child {
     width: 100vw !important;
+    height: 100svh !important;
   }
 }
 
