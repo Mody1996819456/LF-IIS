@@ -1475,44 +1475,72 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       let updated = 0;
       const uniqueKeys: string[] = currentSchema.uniqueKey || [];
 
-      // Build a fast lookup Map to avoid O(n²) find inside loop
+      // Build a lookup of existing records and deduplicate the imported file in memory.
+      // This avoids one network request per row and prevents duplicates within the same file.
       const existingMap = new Map<string, any>();
       if (uniqueKeys.length > 0) {
         records.forEach((r: any) => {
           const key = uniqueKeys.map(k => String(r[k] ?? "").trim()).join("||");
-          existingMap.set(key, r);
+          if (key !== "") existingMap.set(key, r);
         });
       }
 
-      for (let i = 0; i < toInsert.length; i += BATCH) {
-        const batch = toInsert.slice(i, i + BATCH);
+      const dedupedRows = uniqueKeys.length > 0
+        ? Array.from(new Map(toInsert.map((rec: any, index: number) => {
+            const key = uniqueKeys.map(k => String(rec[k] ?? "").trim()).join("||");
+            // Keep the last occurrence from the file so the final row wins.
+            return [key || `__row_${index}`, rec];
+          })).values())
+        : toInsert;
+
+      setImportProgress({ total: dedupedRows.length, done: 0, errors: rowErrors, success: false });
+
+      for (let i = 0; i < dedupedRows.length; i += BATCH) {
+        const batch = dedupedRows.slice(i, i + BATCH);
+        const updateRows: Array<{ id: string; record: any }> = [];
+        const insertRows: any[] = [];
+
         if (uniqueKeys.length > 0) {
-          for (const rec of batch) {
+          batch.forEach((rec: any) => {
             const lookupKey = uniqueKeys.map(k => String(rec[k] ?? "").trim()).join("||");
             const existing = existingMap.get(lookupKey);
-            if (existing) { existing._found = true; }
-            const _existing = existing;
-            if (_existing) {
-              const { error } = await supabase.from(currentSchema.tableName).update({ ...rec, updated_at: new Date().toISOString() }).eq("id", _existing.id);
-              if (!error) updated++;
-              else console.error("Update error:", error);
-            } else {
-              const { error } = await supabase.from(currentSchema.tableName).insert([rec]);
-              if (!error) inserted++;
-              else console.error("Insert error:", error);
-            }
-          }
+            if (existing?.id) updateRows.push({ id: existing.id, record: rec });
+            else insertRows.push(rec);
+          });
         } else {
-          const { error } = await supabase.from(currentSchema.tableName).insert(batch);
-          if (!error) inserted += batch.length;
+          insertRows.push(...batch);
+        }
+
+        // Run all updates in this batch concurrently instead of waiting for each row.
+        const updateResults = await Promise.all(
+          updateRows.map(({ id, record }) =>
+            supabase.from(currentSchema.tableName)
+              .update({ ...record, updated_at: new Date().toISOString() })
+              .eq("id", id)
+          )
+        );
+        updateResults.forEach(({ error }: any, index: number) => {
+          if (!error) updated++;
           else {
+            console.error("Update error:", error);
+            rowErrors.push({ msg: `فشل تحديث السجل ${index + 1}: ${error.message}` });
+          }
+        });
+
+        // Insert all new rows in one request per batch.
+        if (insertRows.length > 0) {
+          const { error } = await supabase.from(currentSchema.tableName).insert(insertRows);
+          if (!error) {
+            inserted += insertRows.length;
+          } else {
             console.error("Batch insert error:", error);
             rowErrors.push({ msg: error.message });
           }
         }
-        setImportProgress({ total: toInsert.length, done: inserted + updated, errors: rowErrors, success: false });
+
+        setImportProgress({ total: dedupedRows.length, done: inserted + updated, errors: rowErrors, success: false });
       }
-      setImportProgress({ total: toInsert.length, done: inserted + updated, errors: rowErrors, success: true, inserted, updated });
+      setImportProgress({ total: dedupedRows.length, done: inserted + updated, errors: rowErrors, success: true, inserted, updated });
       if (tabDataCache?.current) delete tabDataCache.current[schemaId];
       await fetchRecords(true);
       await logAction("bulk_import", currentSchema.tableName, null);
