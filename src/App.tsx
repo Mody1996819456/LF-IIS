@@ -3307,7 +3307,7 @@ function AdminAffairsSystemInner() {
         const profileResults = await Promise.race([
           Promise.all([
             supabase.from("user_roles").select("role").eq("user_id", uid),
-            supabase.from("admin_affairs_managers").select("name,permissions").eq("user_id", uid).maybeSingle(),
+            supabase.from("admin_affairs_managers").select("name,permissions").eq("email", session.user.email || "").maybeSingle(),
           ]),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error("PROFILE_TIMEOUT")), 12000)
