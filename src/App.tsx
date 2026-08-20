@@ -3249,6 +3249,7 @@ function AdminAffairsSystemInner() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [loginStatus, setLoginStatus] = useState("");
   const [authChecking, setAuthChecking] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 1024 : false);
@@ -3301,10 +3302,18 @@ function AdminAffairsSystemInner() {
       resolvedUid = uid;
 
       try {
-        const [roleResult, managerResult] = await Promise.all([
-          supabase.from("user_roles").select("role").eq("user_id", uid),
-          supabase.from("admin_affairs_managers").select("name,permissions").eq("user_id", uid).maybeSingle(),
+        if (mounted) setLoginStatus("جاري تحميل بيانات الحساب والصلاحيات...");
+
+        const profileResults = await Promise.race([
+          Promise.all([
+            supabase.from("user_roles").select("role").eq("user_id", uid),
+            supabase.from("admin_affairs_managers").select("name,permissions").eq("user_id", uid).maybeSingle(),
+          ]),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("PROFILE_TIMEOUT")), 12000)
+          ),
         ]);
+        const [roleResult, managerResult] = profileResults;
         if (roleResult.error) throw roleResult.error;
         if (managerResult.error) throw managerResult.error;
 
@@ -3321,15 +3330,25 @@ function AdminAffairsSystemInner() {
         if (!mounted) return;
         setCurrentUser({ id: uid, role: appRole, name, permissions });
         setCurrentView("app");
-      } catch (error) {
+      } catch (error: any) {
         console.error("Session profile resolution failed:", error);
+        resolvedUid = null;
         if (mounted) {
           setCurrentUser(null);
           setCurrentView("login");
-          showToast("تعذر تحميل صلاحيات الحساب، حاول تسجيل الدخول مرة أخرى", "error");
+          setLoginStatus("");
+          showToast(
+            error?.message === "PROFILE_TIMEOUT"
+              ? "استغرق تحميل صلاحيات الحساب وقتًا طويلًا. تحقق من الاتصال وحاول مرة أخرى."
+              : "تعذر تحميل صلاحيات الحساب، حاول تسجيل الدخول مرة أخرى",
+            "error"
+          );
         }
       } finally {
-        if (mounted) setAuthChecking(false);
+        if (mounted) {
+          setAuthChecking(false);
+          setLoginStatus("");
+        }
       }
     };
 
@@ -3530,26 +3549,49 @@ function AdminAffairsSystemInner() {
 
   const handleLogin = async () => {
     if (isSigningIn) return;
-    if (!loginData.email.trim() || !loginData.password) {
+
+    const email = loginData.email.trim();
+    const password = loginData.password;
+    if (!email || !password) {
+      setLoginStatus("");
       showToast("يرجى إدخال البريد الإلكتروني وكلمة المرور", "error");
       return;
     }
 
     setIsSigningIn(true);
+    setLoginStatus("جاري الاتصال بخدمة الدخول...");
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginData.email.trim(),
-        password: loginData.password,
-      });
-      if (error || !data.session) {
-        showToast("بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى", "error");
+      const authResult = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("LOGIN_TIMEOUT")), 15000)
+        ),
+      ]);
+      const { data, error } = authResult;
+
+      if (error || !data?.session) {
+        console.error("Supabase login error:", error);
+        setLoginStatus("");
+        showToast(
+          error?.message || "لم يتم إنشاء جلسة الدخول",
+          "error"
+        );
         return;
       }
+
+      setLoginStatus("تم التحقق، جاري تحميل بيانات الحساب...");
       showToast("تم تسجيل الدخول بنجاح", "success");
-      // onAuthStateChange in the mount effect resolves the profile and opens the app.
+      // onAuthStateChange resolves the profile and opens the app.
     } catch (e: any) {
       console.error("Login error:", e);
-      showToast("تعذر الاتصال بخدمة الدخول، حاول مرة أخرى", "error");
+      setLoginStatus("");
+      showToast(
+        e?.message === "LOGIN_TIMEOUT"
+          ? "استغرق الاتصال وقتًا طويلًا. تحقق من الإنترنت وحاول مرة أخرى."
+          : e?.message || "تعذر الاتصال بخدمة الدخول، حاول مرة أخرى",
+        "error"
+      );
     } finally {
       setIsSigningIn(false);
     }
@@ -3582,18 +3624,24 @@ function AdminAffairsSystemInner() {
 
   if (currentView === "login") {
     return (
-      <div dir="rtl" style={{ 
-        minHeight: "100vh", 
-        background: "linear-gradient(180deg, #0f3d23 0%, #166534 25%, #22c55e 55%, #a7f3d0 85%, #052e16 100%)", 
-        display: "flex", 
+      <div dir="rtl" style={{
+        minHeight: "100vh",
+        width: "100%",
+        backgroundColor: "#0b3f2f",
+        backgroundImage: "linear-gradient(rgba(4, 45, 32, 0.18), rgba(4, 45, 32, 0.28)), url('/login-background.png')",
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        display: "flex",
         flexDirection: "column",
-        alignItems: "center", 
-        justifyContent: "center", 
-        padding: "20px",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
         position: "relative",
-        overflow: "hidden"
+        overflow: "hidden",
+        boxSizing: "border-box"
       }}>
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "30vh", overflow: "hidden", pointerEvents: "none", display: "flex", alignItems: "flex-end" }}>
+        <div style={{ display: "none" }}>
           <svg viewBox="0 0 1440 300" style={{ width: "100%", height: "100%", position: "absolute", bottom: 0, left: 0 }} preserveAspectRatio="none">
             <path d="M0,300 L1440,300 L1440,240 Q1080,280 720,250 Q360,220 0,260 Z" fill="#032511" />
             <g transform="translate(80, 50) scale(1.6)" fill="#032511">
@@ -3631,29 +3679,30 @@ function AdminAffairsSystemInner() {
           </svg>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px", zIndex: 10 }}>
-          <img 
-            src="/logo.png" 
-            alt="لوجو مزارع لينة" 
-            style={{ width: "120px", height: "auto", objectFit: "contain", userSelect: "none" }} 
-            onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "-58px", zIndex: 12, pointerEvents: "none" }}>
+          <img
+            src="/logo.png"
+            alt="لوجو مزارع لينة"
+            style={{ width: "94px", height: "94px", objectFit: "contain", userSelect: "none", borderRadius: "22px", filter: "drop-shadow(0 8px 12px rgba(0,0,0,0.35))" }}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
           />
         </div>
 
-        <form onSubmit={(event) => { event.preventDefault(); void handleLogin(); }} className="auth-form" style={{ 
-          background: "rgba(255, 255, 255, 0.25)", 
-          backdropFilter: "blur(24px)", 
-          WebkitBackdropFilter: "blur(24px)",
-          padding: "36px 32px", 
-          borderRadius: "28px", 
-          width: "100%", 
-          maxWidth: "420px", 
-          boxShadow: "0 30px 60px -15px rgba(2, 40, 15, 0.35)",
-          border: "1.5px solid rgba(255, 255, 255, 0.45)",
+        <form onSubmit={(event) => { event.preventDefault(); void handleLogin(); }} className="auth-form" style={{
+          background: "linear-gradient(145deg, rgba(230, 244, 232, 0.68), rgba(102, 152, 117, 0.38))",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
+          padding: "72px 24px 24px",
+          borderRadius: "20px",
+          width: "100%",
+          maxWidth: "330px",
+          boxShadow: "0 24px 60px rgba(0, 25, 15, 0.42), inset 0 1px 0 rgba(255,255,255,0.62)",
+          border: "1.5px solid rgba(234, 221, 164, 0.78)",
           textAlign: "center",
-          zIndex: 10
+          zIndex: 10,
+          boxSizing: "border-box"
         }}>
-          <h2 style={{ color: "#064e3b", fontSize: "28px", fontWeight: "900", marginBottom: "24px", textAlign: "center" }}>تسجيل الدخول</h2>
+          <h2 style={{ color: "#d8c477", textShadow: "0 2px 4px rgba(25, 67, 43, 0.6)", fontSize: "20px", fontWeight: "900", margin: "0 0 18px", textAlign: "center" }}>تسجيل الدخول</h2>
 
           <div style={{ position: "relative", marginBottom: "14px", width: "100%" }}>
             <input 
@@ -3666,16 +3715,17 @@ function AdminAffairsSystemInner() {
               onChange={e => setLoginData({...loginData, email: e.target.value})} 
               style={{ 
                 width: "100%", 
-                background: "rgba(255, 255, 255, 0.45)", 
-                border: "2px solid #166534", 
-                padding: "14px 44px 14px 44px", 
-                borderRadius: "9999px", 
-                color: "#064e3b", 
+                background: "rgba(18, 74, 49, 0.42)",
+                border: "1px solid rgba(226, 221, 170, 0.78)",
+                padding: "10px 40px 10px 38px",
+                borderRadius: "9999px",
+                color: "#fff7d6", 
                 outline: "none", 
                 boxSizing: "border-box",
                 fontWeight: "700",
-                fontSize: "14px",
-                textAlign: "right"
+                fontSize: "12px",
+                textAlign: "right",
+                direction: "rtl"
               }} 
             />
             <User 
@@ -3693,19 +3743,25 @@ function AdminAffairsSystemInner() {
               placeholder="كلمة المرور" 
               value={loginData.password} 
               onChange={e => setLoginData({...loginData, password: e.target.value})} 
-              onKeyDown={e => e.key === "Enter" && handleLogin()} 
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleLogin();
+                }
+              }} 
               style={{ 
                 width: "100%", 
-                background: "rgba(255, 255, 255, 0.45)", 
-                border: "2px solid #166534", 
-                padding: "14px 44px 14px 44px", 
-                borderRadius: "9999px", 
-                color: "#064e3b", 
+                background: "rgba(18, 74, 49, 0.42)",
+                border: "1px solid rgba(226, 221, 170, 0.78)",
+                padding: "10px 40px 10px 38px",
+                borderRadius: "9999px",
+                color: "#fff7d6", 
                 outline: "none", 
                 boxSizing: "border-box",
                 fontWeight: "700",
-                fontSize: "14px",
-                textAlign: "right"
+                fontSize: "12px",
+                textAlign: "right",
+                direction: "rtl"
               }} 
             />
             <Lock 
@@ -3723,13 +3779,13 @@ function AdminAffairsSystemInner() {
             </button>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: "22px", padding: "0 8px", width: "100%" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#064e3b", fontWeight: "700", fontSize: "14px", cursor: "pointer", userSelect: "none" }}>
+          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: "18px", padding: "0 4px", width: "100%" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "7px", color: "#fff7d6", fontWeight: "800", fontSize: "12px", cursor: "pointer", userSelect: "none", textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}>
               <input 
                 type="checkbox" 
                 checked={rememberMe} 
                 onChange={e => setRememberMe(e.target.checked)} 
-                style={{ accentColor: "#15803d", width: "18px", height: "18px", borderRadius: "6px", cursor: "pointer" }} 
+                style={{ accentColor: "#d8c477", width: "16px", height: "16px", borderRadius: "5px", cursor: "pointer" }} 
               />
               تذكرني؟
             </label>
@@ -3738,25 +3794,40 @@ function AdminAffairsSystemInner() {
           <button 
             type="submit"
             disabled={isSigningIn}
+            aria-busy={isSigningIn}
             style={{ 
-              width: "100%", 
-              background: "#0d522c", 
-              color: "white", 
-              border: "none", 
-              padding: "14px", 
-              borderRadius: "9999px", 
-              fontWeight: "900", 
-              fontSize: "16px", 
+              width: "100%",
+              background: "linear-gradient(135deg, #0c6b3b, #063d29)",
+              color: "#fff7d6",
+              border: "1px solid rgba(228, 215, 151, 0.72)",
+              padding: "11px",
+              borderRadius: "9999px",
+              fontWeight: "900",
+              fontSize: "14px", 
               cursor: isSigningIn ? "wait" : "pointer",
               opacity: isSigningIn ? 0.78 : 1,
-              boxShadow: "0 10px 20px -3px rgba(13, 82, 44, 0.4)",
+              boxShadow: "0 8px 18px rgba(2, 45, 28, 0.45)",
               transition: "all 0.2s ease"
             }}
             onMouseEnter={e => { e.currentTarget.style.background = "#093d20"; e.currentTarget.style.transform = "scale(1.02)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#0d522c"; e.currentTarget.style.transform = "none"; }}
           >
-            {isSigningIn ? "جارٍ التحقق..." : "دخول"}
+            {isSigningIn ? (
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                <Loader2 size={18} className="animate-spin" />
+                جارٍ التحقق...
+              </span>
+            ) : "دخول"}
           </button>
+          {loginStatus && (
+            <p
+              role="status"
+              aria-live="polite"
+              style={{ margin: "12px 0 0", color: "#fff7d6", fontSize: "11px", fontWeight: "800", textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}
+            >
+              {loginStatus}
+            </p>
+          )}
         </form>
 
         {toastMessage && (
