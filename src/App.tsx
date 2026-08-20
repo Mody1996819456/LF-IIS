@@ -3670,6 +3670,7 @@ function AdminAffairsSystemInner() {
         boxSizing: "border-box"
       }}>
         <div className="login-reference-stage">
+        <img className="login-reference-art" src="/login-reference.png" alt="" aria-hidden="true" />
         <div style={{ display: "none" }}>
           <svg viewBox="0 0 1440 300" style={{ width: "100%", height: "100%", position: "absolute", bottom: 0, left: 0 }} preserveAspectRatio="none">
             <path d="M0,300 L1440,300 L1440,240 Q1080,280 720,250 Q360,220 0,260 Z" fill="#032511" />
