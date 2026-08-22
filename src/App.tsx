@@ -17,7 +17,7 @@ import {
   LineChart, Line, Area, AreaChart
 } from "recharts";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
-import { createManagerAccount } from "@/lib/admin-users.functions";
+import { createManagerAccount, deleteManagerAccount } from "@/lib/admin-users.functions";
 
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
@@ -1296,13 +1296,17 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       dataToSave.updated_at = new Date().toISOString();
 
       if (currentSchema.tableName === "admin_affairs_managers" && !editingRecord) {
-        // Manager creation goes through a server function (owner-only, uses Supabase Auth admin).
+        // Create the Auth account and database profile through the server function.
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("انتهت جلسة الإدارة، يرجى تسجيل الدخول مرة أخرى");
         await createManagerAccount({
           data: {
             email: String(dataToSave.email || "").trim(),
             password: String(dataToSave.password || ""),
             name: String(dataToSave.name || ""),
             permissions: String(dataToSave.permissions || "مشاهد فقط"),
+            accessToken,
           },
         });
         await logAction("create", currentSchema.tableName, null);
@@ -1350,8 +1354,15 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
       msg: "هل تريد بالتأكيد حذف هذا السجل؟",
       onConfirm: async () => {
         try {
-          const { error } = await supabase.from(currentSchema.tableName).delete().eq("id", id);
-          if (error) throw error;
+          if (currentSchema.tableName === "admin_affairs_managers") {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+            if (!accessToken) throw new Error("انتهت جلسة الإدارة، يرجى تسجيل الدخول مرة أخرى");
+            await deleteManagerAccount({ data: { managerId: id, accessToken } });
+          } else {
+            const { error } = await supabase.from(currentSchema.tableName).delete().eq("id", id);
+            if (error) throw error;
+          }
           await logAction("delete", currentSchema.tableName, id);
           if (tabDataCache?.current) delete tabDataCache.current[schemaId];
           await fetchRecords(true);
@@ -3652,7 +3663,7 @@ function AdminAffairsSystemInner() {
 
   if (currentView === "login") {
     return (
-      <div className="login-reference-screen" dir="rtl" style={{
+      <div dir="rtl" style={{
         minHeight: "100vh",
         width: "100%",
         backgroundColor: "#0b3f2f",
@@ -3669,8 +3680,6 @@ function AdminAffairsSystemInner() {
         overflow: "hidden",
         boxSizing: "border-box"
       }}>
-        <div className="login-reference-stage">
-        <img className="login-reference-art" src="/login-reference.png" alt="" aria-hidden="true" />
         <div style={{ display: "none" }}>
           <svg viewBox="0 0 1440 300" style={{ width: "100%", height: "100%", position: "absolute", bottom: 0, left: 0 }} preserveAspectRatio="none">
             <path d="M0,300 L1440,300 L1440,240 Q1080,280 720,250 Q360,220 0,260 Z" fill="#032511" />
@@ -3765,7 +3774,7 @@ function AdminAffairsSystemInner() {
             />
           </div>
 
-          <div className="login-reference-password-field" style={{ position: "relative", marginBottom: "16px", width: "100%" }}>
+          <div style={{ position: "relative", marginBottom: "16px", width: "100%" }}>
             <input 
               type={showPassword ? "text" : "password"}
               name="password"
@@ -3809,7 +3818,7 @@ function AdminAffairsSystemInner() {
             </button>
           </div>
 
-          <div className="login-reference-remember" style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: "18px", padding: "0 4px", width: "100%" }}>
+          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: "18px", padding: "0 4px", width: "100%" }}>
             <label style={{ display: "flex", alignItems: "center", gap: "7px", color: "#fff7d6", fontWeight: "800", fontSize: "12px", cursor: "pointer", userSelect: "none", textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}>
               <input 
                 type="checkbox" 
@@ -3821,8 +3830,7 @@ function AdminAffairsSystemInner() {
             </label>
           </div>
 
-          <button
-            className="login-reference-submit"
+          <button 
             type="submit"
             disabled={isSigningIn}
             aria-busy={isSigningIn}
@@ -3860,7 +3868,6 @@ function AdminAffairsSystemInner() {
             </p>
           )}
         </form>
-        </div>
 
         {toastMessage && (
           <div className={`fixed bottom-6 right-6 p-3 rounded-xl shadow-xl flex items-center gap-2 z-[9999] text-white font-bold animate-in slide-in-from-bottom-5 ${toastMessage.type === 'success' ? 'bg-emerald-500' : toastMessage.type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`}>
