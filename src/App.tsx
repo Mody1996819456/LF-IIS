@@ -1226,7 +1226,16 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
   }), [uniqueItemRows, selectedRequest]);
 
   const openDetails = (r: any) => { setSelectedRequest(requestNo(r)); setView("items"); setSearch(""); };
-  const card = (label: string, value: number, color: string, icon: any) => <StatCard icon={icon} label={label} value={englishToArabic(value)} color={color} />;
+  const card = (label: string, value: number, color: string, icon: any, filter: string = "all") => (
+    <button
+      type="button"
+      onClick={() => { setView("summary"); setSelectedRequest(null); setStatusFilter(filter); }}
+      style={{ padding: 0, border: statusFilter === filter ? "2px solid #4f46e5" : "2px solid transparent", borderRadius: "12px", background: "transparent", cursor: "pointer", textAlign: "right" }}
+      title={`عرض الطلبات: ${label}`}
+    >
+      <div style={{ pointerEvents: "none" }}><StatCard icon={icon} label={label} value={englishToArabic(value)} color={color} /></div>
+    </button>
+  );
 
   if (manageSchema) return <div dir="rtl" style={{ fontFamily: "Cairo, sans-serif" }}>
     <button onClick={() => setManageSchema(null)} style={{ marginBottom: "12px", border: "1px solid #cbd5e1", background: "white", borderRadius: "9px", padding: "9px 14px", cursor: "pointer", fontWeight: 900 }}>← العودة إلى لوحة طلبات الشراء</button>
@@ -1250,7 +1259,7 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
       <button onClick={() => setView("items")} style={{ flex: 1, border: 0, borderRadius: "9px", padding: "10px", cursor: "pointer", fontWeight: 900, color: view === "items" ? "white" : "#475569", background: view === "items" ? "#0f766e" : "transparent" }}><Package size={15} style={{ verticalAlign: "middle", marginLeft: 5 }} /> أصناف الطلبات تفصيلاً</button>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: "8px", marginBottom: "14px" }}>
-      {card("عدد الطلبات", counts.total, "blue", ListOrdered)}{card("مغلق", counts.closed, "green", CheckCircle)}{card("مرفوض", counts.rejected, "red", X)}{card("قيد المراجعة", counts.review, "amber", Clock)}{card("درافت", counts.draft, "violet", Edit3)}
+      {card("عدد الطلبات", counts.total, "blue", ListOrdered, "all")}{card("مغلق", counts.closed, "green", CheckCircle, "closed")}{card("مرفوض", counts.rejected, "red", X, "rejected")}{card("قيد المراجعة", counts.review, "amber", Clock, "review")}{card("درافت", counts.draft, "violet", Edit3, "draft")}
     </div>
     {view === "summary" ? <>
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", background: "white", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", marginBottom: "10px" }}>
