@@ -1197,9 +1197,10 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
   };
   const statusLabel = (status: any) => ({ closed: "مغلق", rejected: "مرفوض", review: "قيد المراجعة", draft: "درافت", other: String(status || "غير محدد") } as any)[normalizeStatus(status)] || "غير محدد";
   const statusStyle = (status: any) => ({ closed: { bg: "#dcfce7", color: "#166534" }, rejected: { bg: "#fee2e2", color: "#991b1b" }, review: { bg: "#fef3c7", color: "#92400e" }, draft: { bg: "#e0e7ff", color: "#3730a3" }, other: { bg: "#f1f5f9", color: "#475569" } } as any)[normalizeStatus(status)];
-  const requestNo = (r: any) => normalizeRequestNumber(r.request_number ?? r.purchase_requisition ?? r.system_request_no ?? r.admin_request_no ?? "");
-  const itemRequestNo = (r: any) => normalizeRequestNumber(r.system_request_no ?? r.admin_request_no ?? r.request_number ?? "");
-  const getDescription = (r: any) => r.description ?? r.name ?? r.requisition_purpose ?? "-";
+  const firstNonEmpty = (...values: any[]) => values.find(v => v !== null && v !== undefined && String(v).trim() !== "") ?? "";
+  const requestNo = (r: any) => normalizeRequestNumber(firstNonEmpty(r.request_number, r.purchase_requisition, r.requisition_number, r.system_request_no, r.admin_request_no));
+  const itemRequestNo = (r: any) => normalizeRequestNumber(firstNonEmpty(r.request_number, r.system_request_no, r.admin_request_no, r.purchase_requisition, r.requisition_number));
+  const getDescription = (r: any) => firstNonEmpty(r.description, r.name, r.requisition_name, r.requisition_purpose) || "-";
 
   const counts = useMemo(() => summaryRows.reduce((a, r) => { a.total++; a[normalizeStatus(r.status)] = (a[normalizeStatus(r.status)] || 0) + 1; return a; }, { total: 0, closed: 0, rejected: 0, review: 0, draft: 0, other: 0 } as any), [summaryRows]);
   const filteredSummary = useMemo(() => summaryRows.filter(r => {
@@ -1207,7 +1208,11 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
     const matchesStatus = statusFilter === "all" || normalizeStatus(r.status) === statusFilter;
     return matchesSearch && matchesStatus;
   }), [summaryRows, search, statusFilter]);
-  const visibleItems = useMemo(() => itemRows.filter(r => !selectedRequest || itemRequestNo(r) === normalizeRequestNumber(selectedRequest)), [itemRows, selectedRequest]);
+  const visibleItems = useMemo(() => itemRows.filter(r => {
+    if (!selectedRequest) return true;
+    const selected = normalizeRequestNumber(selectedRequest);
+    return itemRequestNo(r) === selected || normalizeRequestNumber(r.request_id) === selectedRequest;
+  }), [itemRows, selectedRequest]);
 
   const openDetails = (r: any) => { setSelectedRequest(requestNo(r)); setView("items"); setSearch(""); };
   const card = (label: string, value: number, color: string, icon: any) => <StatCard icon={icon} label={label} value={englishToArabic(value)} color={color} />;
