@@ -1149,6 +1149,88 @@ const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supaba
    );
 });
 
+
+const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logAction, showToast, setConfirmDialog, tabDataCache }: any) => {
+  const [view, setView] = useState<"summary" | "items">("summary");
+  const [summaryRows, setSummaryRows] = useState<any[]>([]);
+  const [itemRows, setItemRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [summary, items] = await Promise.all([
+        fetchAllPages(() => supabase.from("admin_affairs_summary").select("*")),
+        fetchAllPages(() => supabase.from("admin_affairs_purchases").select("*")),
+      ]);
+      setSummaryRows(summary || []);
+      setItemRows(items || []);
+      if (tabDataCache?.current) {
+        tabDataCache.current.summary = summary || [];
+        tabDataCache.current.purchases = items || [];
+      }
+    } catch (e: any) {
+      showToast("تعذر تحميل بيانات طلبات الشراء: " + (e?.message || "خطأ غير معروف"), "error");
+    } finally { setLoading(false); }
+  }, [supabase, showToast, tabDataCache]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const normalizeStatus = (status: any) => {
+    const s = String(status || "").trim().toLowerCase();
+    if (["closed", "مغلق", "مكتمل", "تم التنفيذ", "تم"].includes(s)) return "closed";
+    if (["rejected", "رفض", "مرفوض", "ملغى", "cancelled", "canceled"].includes(s)) return "rejected";
+    if (["in review", "قيد المراجعة", "قيد المراجعه", "قيد التنفيذ", "pending", "قيد الانتظار"].includes(s)) return "review";
+    if (["draft", "مسودة", "درافت"].includes(s)) return "draft";
+    return "other";
+  };
+  const statusLabel = (status: any) => ({ closed: "مغلق", rejected: "مرفوض", review: "قيد المراجعة", draft: "درافت", other: String(status || "غير محدد") } as any)[normalizeStatus(status)] || "غير محدد";
+  const statusStyle = (status: any) => ({ closed: { bg: "#dcfce7", color: "#166534" }, rejected: { bg: "#fee2e2", color: "#991b1b" }, review: { bg: "#fef3c7", color: "#92400e" }, draft: { bg: "#e0e7ff", color: "#3730a3" }, other: { bg: "#f1f5f9", color: "#475569" } } as any)[normalizeStatus(status)];
+  const requestNo = (r: any) => String(r.request_number ?? r.purchase_requisition ?? r.system_request_no ?? r.admin_request_no ?? "").trim();
+  const itemRequestNo = (r: any) => String(r.system_request_no ?? r.admin_request_no ?? r.request_number ?? "").trim();
+  const getDescription = (r: any) => r.description ?? r.name ?? r.requisition_purpose ?? "-";
+
+  const counts = useMemo(() => summaryRows.reduce((a, r) => { a.total++; a[normalizeStatus(r.status)] = (a[normalizeStatus(r.status)] || 0) + 1; return a; }, { total: 0, closed: 0, rejected: 0, review: 0, draft: 0, other: 0 } as any), [summaryRows]);
+  const filteredSummary = useMemo(() => summaryRows.filter(r => {
+    const matchesSearch = !search || [requestNo(r), getDescription(r), r.preparer, r.company_name, r.workflow_approver].join(" ").toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "all" || normalizeStatus(r.status) === statusFilter;
+    return matchesSearch && matchesStatus;
+  }), [summaryRows, search, statusFilter]);
+  const visibleItems = useMemo(() => itemRows.filter(r => !selectedRequest || itemRequestNo(r) === selectedRequest), [itemRows, selectedRequest]);
+
+  const openDetails = (r: any) => { setSelectedRequest(requestNo(r)); setView("items"); setSearch(""); };
+  const card = (label: string, value: number, color: string, icon: any) => <StatCard icon={icon} label={label} value={englishToArabic(value)} color={color} />;
+
+  return <div dir="rtl" style={{ fontFamily: "Cairo, sans-serif" }}>
+    <div style={{ background: "linear-gradient(135deg,#312e81,#4f46e5 55%,#0f766e)", color: "white", borderRadius: "18px", padding: "20px", marginBottom: "14px", boxShadow: "0 8px 25px rgba(79,70,229,.18)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div><h1 style={{ margin: 0, fontSize: "24px", fontWeight: 900 }}>طلبات الشراء</h1><p style={{ margin: "5px 0 0", opacity: .85, fontSize: "12px" }}>متابعة الطلبات الإجمالية وأصناف كل طلب في شاشة واحدة</p></div>
+        <button onClick={load} style={{ border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.15)", color: "white", borderRadius: "10px", padding: "9px 14px", fontWeight: 800, cursor: "pointer" }}>↻ تحديث البيانات</button>
+      </div>
+    </div>
+    <div style={{ display: "flex", gap: "8px", marginBottom: "14px", background: "white", padding: "6px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+      <button onClick={() => { setView("summary"); setSelectedRequest(null); }} style={{ flex: 1, border: 0, borderRadius: "9px", padding: "10px", cursor: "pointer", fontWeight: 900, color: view === "summary" ? "white" : "#475569", background: view === "summary" ? "#4f46e5" : "transparent" }}><ListOrdered size={15} style={{ verticalAlign: "middle", marginLeft: 5 }} /> إجمالي الطلبات</button>
+      <button onClick={() => setView("items")} style={{ flex: 1, border: 0, borderRadius: "9px", padding: "10px", cursor: "pointer", fontWeight: 900, color: view === "items" ? "white" : "#475569", background: view === "items" ? "#0f766e" : "transparent" }}><Package size={15} style={{ verticalAlign: "middle", marginLeft: 5 }} /> أصناف الطلبات تفصيلاً</button>
+    </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: "8px", marginBottom: "14px" }}>
+      {card("عدد الطلبات", counts.total, "blue", ListOrdered)}{card("مغلق", counts.closed, "green", CheckCircle)}{card("مرفوض", counts.rejected, "red", X)}{card("قيد المراجعة", counts.review, "amber", Clock)}{card("درافت", counts.draft, "violet", Edit3)}
+    </div>
+    {view === "summary" ? <>
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", background: "white", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", marginBottom: "10px" }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ابحث برقم الطلب أو الوصف أو مقدم الطلب..." style={{ flex: 1, minWidth: "220px", padding: "9px 12px", border: "1px solid #cbd5e1", borderRadius: "8px", outline: "none" }} />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: "9px", border: "1px solid #cbd5e1", borderRadius: "8px" }}><option value="all">كل الحالات</option><option value="closed">مغلق</option><option value="rejected">مرفوض</option><option value="review">قيد المراجعة</option><option value="draft">درافت</option></select>
+      </div>
+      <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: "850px", fontSize: "12px" }}><thead style={{ background: "#312e81", color: "white" }}><tr>{["رقم الطلب", "الوصف", "مقدم الطلب", "تاريخ الإنشاء", "تاريخ الإرسال", "الشركة", "المعتمد", "الحالة"].map(h => <th key={h} style={{ padding: "11px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={8} style={{ padding: 30, textAlign: "center" }}>جاري التحميل...</td></tr> : filteredSummary.map((r, i) => { const st = statusStyle(r.status); return <tr key={r.id || i} style={{ borderBottom: "1px solid #f1f5f9" }}><td style={{ padding: "10px 8px" }}><button onClick={() => openDetails(r)} style={{ border: 0, background: "transparent", color: "#4f46e5", fontWeight: 900, cursor: "pointer", textDecoration: "underline" }}>{requestNo(r) || "-"}</button></td><td style={{ padding: "10px 8px", maxWidth: 260 }}>{getDescription(r)}</td><td style={{ padding: "10px 8px" }}>{r.preparer || "-"}</td><td style={{ padding: "10px 8px" }}>{formatDate(r.request_date || r.created_date)}</td><td style={{ padding: "10px 8px" }}>{formatDate(r.submitted_date)}</td><td style={{ padding: "10px 8px" }}>{r.company_name || r.gp_company_name || "-"}</td><td style={{ padding: "10px 8px" }}>{r.workflow_approver || "-"}</td><td style={{ padding: "10px 8px" }}><span style={{ background: st.bg, color: st.color, borderRadius: 999, padding: "4px 9px", fontWeight: 900, whiteSpace: "nowrap" }}>{statusLabel(r.status)}</span></td></tr> })}</tbody></table></div>
+    </> : <>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "10px" }}><button disabled={!selectedRequest} onClick={() => { setSelectedRequest(null); setView("summary"); }} style={{ border: "1px solid #cbd5e1", background: "white", borderRadius: "8px", padding: "8px 12px", cursor: selectedRequest ? "pointer" : "not-allowed", fontWeight: 800 }}>← كل الطلبات</button><div style={{ color: "#475569", fontSize: "12px", fontWeight: 800 }}>{selectedRequest ? `تفاصيل أصناف الطلب رقم ${selectedRequest}` : "اختر رقم طلب من تبويب إجمالي الطلبات لعرض أصنافه"}</div></div>
+      <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: "850px", fontSize: "12px" }}><thead style={{ background: "#0f766e", color: "white" }}><tr>{["رقم الطلب", "البند", "الوحدة", "الكمية المطلوبة", "الكمية المنفذة", "المتبقي", "القسم الطالب", "الحالة"].map(h => <th key={h} style={{ padding: "11px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{visibleItems.length ? visibleItems.map((r, i) => <tr key={r.id || i} style={{ borderBottom: "1px solid #f1f5f9" }}><td style={{ padding: "10px 8px", fontWeight: 900 }}>{itemRequestNo(r) || "-"}</td><td style={{ padding: "10px 8px" }}>{r.item_name || r.name || "-"}</td><td style={{ padding: "10px 8px" }}>{r.unit || "-"}</td><td style={{ padding: "10px 8px" }}>{r.quantity_requested ?? "-"}</td><td style={{ padding: "10px 8px" }}>{r.quantity_executed ?? "-"}</td><td style={{ padding: "10px 8px" }}>{r.quantity_remaining ?? "-"}</td><td style={{ padding: "10px 8px" }}>{r.requesting_department || "-"}</td><td style={{ padding: "10px 8px" }}>{r.executor || "-"}</td></tr>) : <tr><td colSpan={8} style={{ padding: 30, textAlign: "center", color: "#64748b" }}>{selectedRequest ? "لا توجد أصناف مرتبطة بهذا الطلب في جدول الأصناف" : "لم يتم تحديد طلب بعد"}</td></tr>}</tbody></table></div>
+    </>}
+  </div>;
+});
+
 const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, showToast, setConfirmDialog, tabDataCache }: any) => {
   const currentSchema = schemas[schemaId];
   const isViewer = currentUser?.role === "viewer";
@@ -3882,8 +3964,7 @@ function AdminAffairsSystemInner() {
   const tabs = [
     { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
     { id: "purchases", label: "طلبات الشراء", icon: ShoppingCart },
-    { id: "summary", label: "إجمالي الطلبات", icon: ListOrdered },
-    { id: "vegetables", label: "خضار أسبوعي", icon: Leaf },
+        { id: "vegetables", label: "خضار أسبوعي", icon: Leaf },
     { id: "assets", label: "الأصول", icon: Package },
     { id: "budget", label: "الموازنة", icon: BarChart2 },
     { id: "assets_new", label: "الأصول الجديد", icon: Building2 },
@@ -4012,6 +4093,8 @@ function AdminAffairsSystemInner() {
               ) : null
             } 
           />
+        ) : activeTab === "purchases" ? (
+          <PurchaseRequisitionsSection supabase={supabase} currentUser={currentUser} logAction={logAction} showToast={showToast} setConfirmDialog={setConfirmDialog} tabDataCache={tabDataCache} />
         ) : activeTab === "budget" ? (
           <BudgetSection supabase={supabase} currentUser={currentUser} showToast={showToast} setConfirmDialog={setConfirmDialog} />
         ) : activeTab === "assets_new" ? (
