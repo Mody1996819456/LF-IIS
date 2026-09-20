@@ -80,6 +80,13 @@ const arabicToEnglish = (s: string) =>
 
 const englishToArabic = (s: string | number) => String(s);
 
+// توحيد رقم الطلب: 008821 و 8821 يعتبران نفس الرقم.
+const normalizeRequestNumber = (value: any) => {
+  const normalized = arabicToEnglish(String(value ?? "").trim());
+  if (!normalized) return "";
+  return /^\d+$/.test(normalized) ? normalized.replace(/^0+(?=\d)/, "") : normalized;
+};
+
 const parseImportDate = (value: any): string | null => {
     if (value === null || value === undefined || value === "") return null;
     if (typeof value === "number") {
@@ -1158,6 +1165,7 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
+  const [manageSchema, setManageSchema] = useState<"summary" | "purchases" | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1189,8 +1197,8 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
   };
   const statusLabel = (status: any) => ({ closed: "مغلق", rejected: "مرفوض", review: "قيد المراجعة", draft: "درافت", other: String(status || "غير محدد") } as any)[normalizeStatus(status)] || "غير محدد";
   const statusStyle = (status: any) => ({ closed: { bg: "#dcfce7", color: "#166534" }, rejected: { bg: "#fee2e2", color: "#991b1b" }, review: { bg: "#fef3c7", color: "#92400e" }, draft: { bg: "#e0e7ff", color: "#3730a3" }, other: { bg: "#f1f5f9", color: "#475569" } } as any)[normalizeStatus(status)];
-  const requestNo = (r: any) => String(r.request_number ?? r.purchase_requisition ?? r.system_request_no ?? r.admin_request_no ?? "").trim();
-  const itemRequestNo = (r: any) => String(r.system_request_no ?? r.admin_request_no ?? r.request_number ?? "").trim();
+  const requestNo = (r: any) => normalizeRequestNumber(r.request_number ?? r.purchase_requisition ?? r.system_request_no ?? r.admin_request_no ?? "");
+  const itemRequestNo = (r: any) => normalizeRequestNumber(r.system_request_no ?? r.admin_request_no ?? r.request_number ?? "");
   const getDescription = (r: any) => r.description ?? r.name ?? r.requisition_purpose ?? "-";
 
   const counts = useMemo(() => summaryRows.reduce((a, r) => { a.total++; a[normalizeStatus(r.status)] = (a[normalizeStatus(r.status)] || 0) + 1; return a; }, { total: 0, closed: 0, rejected: 0, review: 0, draft: 0, other: 0 } as any), [summaryRows]);
@@ -1199,16 +1207,26 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
     const matchesStatus = statusFilter === "all" || normalizeStatus(r.status) === statusFilter;
     return matchesSearch && matchesStatus;
   }), [summaryRows, search, statusFilter]);
-  const visibleItems = useMemo(() => itemRows.filter(r => !selectedRequest || itemRequestNo(r) === selectedRequest), [itemRows, selectedRequest]);
+  const visibleItems = useMemo(() => itemRows.filter(r => !selectedRequest || itemRequestNo(r) === normalizeRequestNumber(selectedRequest)), [itemRows, selectedRequest]);
 
   const openDetails = (r: any) => { setSelectedRequest(requestNo(r)); setView("items"); setSearch(""); };
   const card = (label: string, value: number, color: string, icon: any) => <StatCard icon={icon} label={label} value={englishToArabic(value)} color={color} />;
+
+  if (manageSchema) return <div dir="rtl" style={{ fontFamily: "Cairo, sans-serif" }}>
+    <button onClick={() => setManageSchema(null)} style={{ marginBottom: "12px", border: "1px solid #cbd5e1", background: "white", borderRadius: "9px", padding: "9px 14px", cursor: "pointer", fontWeight: 900 }}>← العودة إلى لوحة طلبات الشراء</button>
+    <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: "12px", padding: "10px 14px", marginBottom: "12px", color: "#3730a3", fontWeight: 900 }}>إدارة السجلات — الإضافة والتعديل والحذف والاستيراد متاحة من الجدول التالي</div>
+    <DataTableTab schemaId={manageSchema} supabase={supabase} currentUser={currentUser} logAction={logAction} showToast={showToast} setConfirmDialog={setConfirmDialog} tabDataCache={tabDataCache} />
+  </div>;
 
   return <div dir="rtl" style={{ fontFamily: "Cairo, sans-serif" }}>
     <div style={{ background: "linear-gradient(135deg,#312e81,#4f46e5 55%,#0f766e)", color: "white", borderRadius: "18px", padding: "20px", marginBottom: "14px", boxShadow: "0 8px 25px rgba(79,70,229,.18)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
         <div><h1 style={{ margin: 0, fontSize: "24px", fontWeight: 900 }}>طلبات الشراء</h1><p style={{ margin: "5px 0 0", opacity: .85, fontSize: "12px" }}>متابعة الطلبات الإجمالية وأصناف كل طلب في شاشة واحدة</p></div>
-        <button onClick={load} style={{ border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.15)", color: "white", borderRadius: "10px", padding: "9px 14px", fontWeight: 800, cursor: "pointer" }}>↻ تحديث البيانات</button>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={() => setManageSchema("summary")} style={{ border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.15)", color: "white", borderRadius: "10px", padding: "9px 12px", fontWeight: 800, cursor: "pointer" }}>✚ إدارة الطلبات</button>
+          <button onClick={() => setManageSchema("purchases")} style={{ border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.15)", color: "white", borderRadius: "10px", padding: "9px 12px", fontWeight: 800, cursor: "pointer" }}>✎ إدارة الأصناف</button>
+          <button onClick={load} style={{ border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.15)", color: "white", borderRadius: "10px", padding: "9px 12px", fontWeight: 800, cursor: "pointer" }}>↻ تحديث البيانات</button>
+        </div>
       </div>
     </div>
     <div style={{ display: "flex", gap: "8px", marginBottom: "14px", background: "white", padding: "6px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
@@ -1536,7 +1554,8 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
               const n = parseFloat(arabicToEnglish(String(value)));
               record[dbField] = isNaN(n) ? null : n;
             } else {
-              record[dbField] = value === "" ? null : value;
+              const isRequestNumber = ["request_number", "purchase_requisition", "system_request_no", "admin_request_no"].includes(dbField);
+              record[dbField] = value === "" ? null : (isRequestNumber ? normalizeRequestNumber(value) : value);
             }
           }
         });
