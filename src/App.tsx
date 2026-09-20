@@ -223,24 +223,38 @@ const schemas: Record<string, any> = {
       icon: ListOrdered,
       uniqueKey: ["request_number"],
       fields: [
-        { key: "request_number", label: "رقم الطلب", type: "text", required: true },
-        { key: "request_date", label: "تاريخ الطلب", type: "date" },
+        { key: "purchase_requisition", label: "Purchase requisition", type: "text", required: true },
+        { key: "requisition_name", label: "Name", type: "text" },
+        { key: "preparer", label: "Preparer", type: "text" },
+        { key: "project_id", label: "Project ID", type: "text" },
+        { key: "status", label: "Status", type: "text" },
+        { key: "request_date", label: "Created date", type: "date" },
+        { key: "submitted_date", label: "Submitted date", type: "date" },
+        { key: "requisition_purpose", label: "Requisition purpose", type: "text" },
+        { key: "gp_company_code", label: "GP_Company code", type: "text" },
+        { key: "gp_company_name", label: "GP_Company name", type: "text" },
+        { key: "workflow_approver", label: "Workflow approver", type: "text" },
+        { key: "is_fault", label: "Is fault", type: "text" },
+        { key: "request_number", label: "رقم الطلب الداخلي", type: "text" },
+        { key: "description", label: "الوصف الداخلي", type: "textarea" },
         { key: "execution_date", label: "تاريخ التنفيذ", type: "date" },
-        { key: "description", label: "وصف طلب الشراء", type: "textarea", required: true },
         { key: "year", label: "العام", type: "select", options: years },
-        { key: "status", label: "حالة الطلب", type: "select", options: ["قيد الانتظار", "قيد التنفيذ", "مكتمل", "ملغى"] },
         { key: "remaining_items", label: "عدد البنود المتبقية", type: "text" },
         { key: "remarks", label: "ملاحظات", type: "textarea" },
       ],
       excelColumns: {
-        "رقم الطلب": "request_number",
-        "تاريخ الطلب": "request_date",
-        "تاريخ التنفيذ": "execution_date",
-        "وصف طلب الشراء": "description",
-        "العام": "year",
-        "حالة الطلب": "status",
-        "عدد البنود المتبقيه": "remaining_items",
-        "ملاحظات": "remarks",
+        "Purchase requisition": "purchase_requisition",
+        "Name": "requisition_name",
+        "Preparer": "preparer",
+        "Project ID": "project_id",
+        "Status": "status",
+        "Created date": "request_date",
+        "Submitted date": "submitted_date",
+        "Requisition purpose": "requisition_purpose",
+        "GP_Company code": "gp_company_code",
+        "GP_Company name": "gp_company_name",
+        "Workflow approver": "workflow_approver",
+        "Is fault": "is_fault",
       }
     },
     vegetables: {
@@ -1573,6 +1587,12 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
         record.updated_at = new Date().toISOString();
         // Remove id to let Supabase generate
         delete record.id;
+
+        if (currentSchema.tableName === "admin_affairs_summary") {
+          record.request_number = normalizeRequestNumber(record.request_number || record.purchase_requisition);
+          record.description = record.description || record.requisition_name || record.requisition_purpose || null;
+          record.purchase_requisition = normalizeRequestNumber(record.purchase_requisition);
+        }
 
         const requiredField = currentSchema.fields.find((f: any) => f.required);
         if (requiredField && !String(record[requiredField.key] || "").trim()) {
