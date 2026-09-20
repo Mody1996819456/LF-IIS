@@ -221,7 +221,7 @@ const schemas: Record<string, any> = {
       tableName: "admin_affairs_summary",
       title: "إجمالي الطلبات",
       icon: ListOrdered,
-      uniqueKey: ["request_number"],
+      uniqueKey: ["purchase_requisition"],
       fields: [
         { key: "purchase_requisition", label: "Purchase requisition", type: "text", required: true },
         { key: "requisition_name", label: "Name", type: "text" },
@@ -235,12 +235,6 @@ const schemas: Record<string, any> = {
         { key: "gp_company_name", label: "GP_Company name", type: "text" },
         { key: "workflow_approver", label: "Workflow approver", type: "text" },
         { key: "is_fault", label: "Is fault", type: "text" },
-        { key: "request_number", label: "رقم الطلب الداخلي", type: "text" },
-        { key: "description", label: "الوصف الداخلي", type: "textarea" },
-        { key: "execution_date", label: "تاريخ التنفيذ", type: "date" },
-        { key: "year", label: "العام", type: "select", options: years },
-        { key: "remaining_items", label: "عدد البنود المتبقية", type: "text" },
-        { key: "remarks", label: "ملاحظات", type: "textarea" },
       ],
       excelColumns: {
         "Purchase requisition": "purchase_requisition",
