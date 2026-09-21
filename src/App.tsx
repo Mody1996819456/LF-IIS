@@ -1725,10 +1725,19 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
   };
 
   return (
-    <div className="space-y-4">
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "16px" }}>
+    <div className="space-y-4" dir="rtl">
+      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(248,250,252,.96)", backdropFilter: "blur(12px)", padding: "0 0 10px", marginBottom: "4px" }}>
+        <div style={{ background: "linear-gradient(110deg,#312e81,#4f46e5 55%,#0f766e)", color: "white", borderRadius: "16px", padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", boxShadow: "0 10px 30px -12px rgba(49,46,129,.5)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.35)" }}>{currentSchema.icon ? React.createElement(currentSchema.icon, { size: 22 }) : <ListOrdered size={22} />}</div>
+            <div><h2 style={{ margin: 0, fontSize: "22px", fontWeight: 900 }}>{currentSchema.title}</h2><p style={{ margin: "3px 0 0", color: "#dbeafe", fontSize: "11px", fontWeight: 700 }}>إدارة البيانات والبحث والاستيراد والتصدير في شاشة موحدة</p></div>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}><div style={{ background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.3)", borderRadius: "10px", padding: "8px 13px", textAlign: "center" }}><div style={{ fontSize: "10px", color: "#dbeafe", fontWeight: 800 }}>السجلات المعروضة</div><strong style={{ display: "block", fontSize: "21px", lineHeight: 1.1 }}>{englishToArabic(filtered.length)}</strong></div></div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px", background: "white", padding: "10px", borderRadius: "12px", border: "1px solid #dbeafe", boxShadow: "0 4px 14px rgba(15,23,42,.05)" }}>
         {!isViewer && (
-          <button onClick={openAdd} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#4f46e5", color: "white", border: "none", borderRadius: "8px", padding: "8px 12px", fontWeight: "800", cursor: "pointer", fontSize: "13px" }}>
+            <button onClick={openAdd} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#2563eb", color: "white", border: "2px solid #bfdbfe", borderRadius: "10px", padding: "9px 13px", fontWeight: "900", cursor: "pointer", fontSize: "13px", boxShadow: "0 4px 10px rgba(37,99,235,.2)" }}>
             <Plus size={14} /> إضافة جديد
           </button>
         )}
@@ -1736,18 +1745,18 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
           <>
             {!isViewer && (
               <>
-                <button onClick={downloadTemplate} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#f59e0b", color: "white", border: "none", borderRadius: "8px", padding: "8px 12px", fontWeight: "800", cursor: "pointer", fontSize: "13px" }}>
+                <button onClick={downloadTemplate} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#d97706", color: "white", border: "2px solid #fde68a", borderRadius: "10px", padding: "9px 13px", fontWeight: "900", cursor: "pointer", fontSize: "13px" }}>
                   <FileDown size={14} /> نموذج Excel
                 </button>
-                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} style={{ display: "flex", alignItems: "center", gap: "5px", background: uploadingFile ? "#94a3b8" : "#0284c7", color: "white", border: "none", borderRadius: "8px", padding: "8px 12px", fontWeight: "800", cursor: uploadingFile ? "not-allowed" : "pointer", fontSize: "13px" }}>
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} style={{ display: "flex", alignItems: "center", gap: "5px", background: uploadingFile ? "#94a3b8" : "#0891b2", color: "white", border: "2px solid #a5f3fc", borderRadius: "10px", padding: "9px 13px", fontWeight: "900", cursor: uploadingFile ? "not-allowed" : "pointer", fontSize: "13px" }}>
                   <Upload size={14} /> {uploadingFile ? "جاري..." : "استيراد"}
                 </button>
               </>
             )}
-            <button onClick={exportToExcel} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", padding: "8px 12px", fontWeight: "800", cursor: "pointer", fontSize: "13px" }}>
+            <button onClick={exportToExcel} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#059669", color: "white", border: "2px solid #a7f3d0", borderRadius: "10px", padding: "9px 13px", fontWeight: "900", cursor: "pointer", fontSize: "13px" }}>
               <Download size={14} /> تصدير
             </button>
-            <button onClick={() => setShowImportGuide(true)} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "8px 12px", fontWeight: "800", cursor: "pointer", fontSize: "13px" }}>
+            <button onClick={() => setShowImportGuide(true)} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#eef2ff", color: "#3730a3", border: "2px solid #c7d2fe", borderRadius: "10px", padding: "9px 13px", fontWeight: "900", cursor: "pointer", fontSize: "13px" }}>
               ❓ تعليمات
             </button>
           </>
@@ -1812,8 +1821,8 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
 
       {loading ? <div style={{ textAlign: "center", padding: "30px" }}><Loader2 className="animate-spin text-indigo-600" size={28} /></div> : 
         <div style={{ background: "white", borderRadius: "10px", border: "1px solid #e2e8f0", height: "calc(100vh - 200px)", overflow: "auto", boxShadow: "0 2px 10px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px", backgroundColor:"#ffffff", flex: 1 }}>
-              <thead style={{ backgroundColor:"#4f46e5", color:"white", fontWeight:"800", textAlign:"center", position:"sticky", top:0, zIndex:10 }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px", backgroundColor:"#ffffff", flex: 1, border:"1px solid #94a3b8" }}>
+              <thead style={{ background:"linear-gradient(90deg,#312e81,#4f46e5,#0f766e)", color:"white", fontWeight:"900", textAlign:"center", position:"sticky", top:0, zIndex:10 }}>
                 <tr>
                   {!isViewer && (
                     <th style={{ padding:"8px 6px", textAlign:"center", whiteSpace: "nowrap", border: "2px solid #4338ca", width: "36px" }}>
@@ -1827,10 +1836,10 @@ const DataTableTab = React.memo(({ schemaId, supabase, currentUser, logAction, s
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.map((record: any) => {
+                {pagedRows.map((record: any, rowIndex: number) => {
                   const isLowRemaining = schemaId === 'purchases' && Number(record.quantity_requested) > 0 && Number(record.quantity_remaining) < (Number(record.quantity_requested) * 0.1);
-                  const baseBg = isLowRemaining ? "#fef2f2" : "white";
-                  const hoverBg = isLowRemaining ? "#fee2e2" : "#f8fafc";
+                  const baseBg = isLowRemaining ? "#fef2f2" : (rowIndex % 2 === 0 ? "#ffffff" : "#f8fafc");
+                  const hoverBg = isLowRemaining ? "#fee2e2" : "#eef2ff";
 
                   let alertStatus = null;
                   let alertTooltip = "";
