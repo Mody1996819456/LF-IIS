@@ -959,7 +959,7 @@ const Dashboard = React.memo(({ supabase, systemMenu, dashboardCache }: { supaba
                                    </div>
                                    <div className="flex items-center gap-3 mr-auto md:mr-0 md:mr-auto justify-end relative z-[99]">
                                        <img 
-                                           src="/logo.png" 
+                                           src="/linah-farms-logo.jpg" 
                                            alt="Linah Farms" 
                                            className="h-14 w-auto object-contain select-none"
                                            style={{ border: "none", outline: "none", boxShadow: "none" }}
@@ -3878,7 +3878,7 @@ function AdminAffairsSystemInner() {
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "-58px", zIndex: 12, pointerEvents: "none" }}>
           <img
-            src="/logo.png"
+            src="/linah-farms-logo.jpg"
             alt="لوجو مزارع لينة"
             style={{ width: "94px", height: "94px", objectFit: "contain", userSelect: "none", borderRadius: "22px", filter: "drop-shadow(0 8px 12px rgba(0,0,0,0.35))" }}
             onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -4089,7 +4089,7 @@ function AdminAffairsSystemInner() {
       }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", marginBottom: "20px", padding: "16px 10px", opacity: sidebarOpen ? 1 : 0, transition: "opacity 0.3s", textAlign: "center", background: "linear-gradient(160deg, rgba(16,185,129,0.12) 0%, rgba(79,70,229,0.08) 100%)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.08)", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-40px", left: "-40px", width: "120px", height: "120px", background: "radial-gradient(circle, rgba(52,211,153,0.25), transparent 70%)", pointerEvents: "none" }} />
-          <img src="/logo.png" alt="مشترياتك" style={{ width: "60px", height: "auto", objectFit: "contain", filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.4))", position: "relative", zIndex: 1 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/linah-farms-logo.jpg" alt="مشترياتك" style={{ width: "60px", height: "auto", objectFit: "contain", filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.4))", position: "relative", zIndex: 1 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <div style={{ position: "relative", zIndex: 1 }}>
             <h1 style={{ fontWeight: "900", fontSize: "17px", margin: "0 0 2px 0", color: "#f8fafc", letterSpacing: "0.5px" }}>مشترياتك</h1>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
