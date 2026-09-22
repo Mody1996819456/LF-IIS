@@ -1199,27 +1199,29 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
     const s = String(status || "").trim().toLowerCase();
     if (["closed", "مغلق", "مكتمل", "تم التنفيذ", "تم"].includes(s)) return "closed";
     if (["rejected", "رفض", "مرفوض", "ملغى", "cancelled", "canceled"].includes(s)) return "rejected";
-    if (["in review", "قيد المراجعة", "قيد المراجعه", "قيد التنفيذ", "pending", "قيد الانتظار"].includes(s)) return "review";
+    if (["in review", "in_review", "قيد المراجعة", "قيد المراجعه", "قيد التنفيذ", "pending", "قيد الانتظار"].includes(s)) return "review";
     if (["draft", "مسودة", "درافت"].includes(s)) return "draft";
     if (["approved", "مقبول", "معتمد"].includes(s)) return "approved";
+    if (["submitted", "submit", "مرسل", "تم الإرسال"].includes(s)) return "submitted";
     return "other";
   };
-  const statusLabel = (status: any) => ({ closed: "مغلق", rejected: "مرفوض", review: "قيد المراجعة", draft: "مسودة", approved: "معتمد", other: "غير محدد" } as any)[normalizeStatus(status)] || "غير محدد";
-  const statusStyle = (status: any) => ({ closed: { bg: "#dcfce7", color: "#166534" }, rejected: { bg: "#fee2e2", color: "#991b1b" }, review: { bg: "#fef3c7", color: "#92400e" }, draft: { bg: "#e0e7ff", color: "#3730a3" }, approved: { bg: "#dbeafe", color: "#1d4ed8" }, other: { bg: "#f1f5f9", color: "#475569" } } as any)[normalizeStatus(status)];
+  const statusLabel = (status: any) => ({ closed: "Closed", rejected: "Rejected", review: "In Review", draft: "Draft", approved: "Approved", submitted: "Submitted", other: "Other" } as any)[normalizeStatus(status)] || "Other";
+  const statusStyle = (status: any) => ({ closed: { bg: "#dcfce7", color: "#166534" }, rejected: { bg: "#fee2e2", color: "#991b1b" }, review: { bg: "#fef3c7", color: "#92400e" }, draft: { bg: "#e0e7ff", color: "#3730a3" }, approved: { bg: "#dbeafe", color: "#1d4ed8" }, submitted: { bg: "#cffafe", color: "#0e7490" }, other: { bg: "#f1f5f9", color: "#475569" } } as any)[normalizeStatus(status)];
   const firstNonEmpty = (...values: any[]) => values.find(v => v !== null && v !== undefined && String(v).trim() !== "") ?? "";
   const requestNo = (r: any) => normalizeRequestNumber(firstNonEmpty(r.request_number, r.purchase_requisition, r.requisition_number, r.system_request_no, r.admin_request_no));
   const itemRequestNo = (r: any) => normalizeRequestNumber(firstNonEmpty(r.request_number, r.system_request_no, r.admin_request_no, r.purchase_requisition, r.requisition_number));
   const getDescription = (r: any) => firstNonEmpty(r.description, r.name, r.requisition_name, r.requisition_purpose) || "-";
 
   // منع تكرار نفس الطلب أو الصنف في الأقسام الجديدة دون حذف أي سجل من قاعدة البيانات.
-  const uniqueSummaryRows = useMemo(() => Array.from(new Map(summaryRows.map((r, i) => [requestNo(r) || `summary-${r.id || i}`, r])).values()), [summaryRows]);
-  const uniqueItemRows = useMemo(() => Array.from(new Map(itemRows.map((r, i) => [`${itemRequestNo(r)}|${r.item_name || r.name || ""}|${r.unit || ""}|${r.quantity_requested ?? ""}|${r.quantity_executed ?? ""}`, r])).values()), [itemRows]);
-  const counts = useMemo(() => uniqueSummaryRows.reduce((a, r) => { a.total++; a[normalizeStatus(r.status)] = (a[normalizeStatus(r.status)] || 0) + 1; return a; }, { total: 0, closed: 0, rejected: 0, review: 0, draft: 0, other: 0 } as any), [uniqueSummaryRows]);
+  const statusOrder = ["closed", "rejected", "review", "draft", "approved", "submitted", "other"];
+  const uniqueSummaryRows = useMemo(() => Array.from(new Map(summaryRows.map((r, i) => [requestNo(r) || `summary-${r.id || i}`, r])).values()).sort((a: any, b: any) => String(requestNo(a)).localeCompare(String(requestNo(b)), undefined, { numeric: true })), [summaryRows]);
+  const uniqueItemRows = useMemo(() => Array.from(new Map(itemRows.map((r, i) => [`${itemRequestNo(r)}|${r.item_name || r.name || ""}|${r.unit || ""}|${r.quantity_requested ?? ""}|${r.quantity_executed ?? ""}`, r])).values()).sort((a: any, b: any) => String(itemRequestNo(a)).localeCompare(String(itemRequestNo(b)), undefined, { numeric: true })), [itemRows]);
+  const counts = useMemo(() => uniqueSummaryRows.reduce((a, r) => { a.total++; const key = normalizeStatus(r.status); a[key] = (a[key] || 0) + 1; return a; }, { total: 0, closed: 0, rejected: 0, review: 0, draft: 0, approved: 0, submitted: 0, other: 0 } as any), [uniqueSummaryRows]);
   const filteredSummary = useMemo(() => uniqueSummaryRows.filter(r => {
     const matchesSearch = !search || [requestNo(r), getDescription(r), r.preparer, r.company_name, r.workflow_approver].join(" ").toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || normalizeStatus(r.status) === statusFilter;
     return matchesSearch && matchesStatus;
-  }), [summaryRows, search, statusFilter]);
+  }), [uniqueSummaryRows, search, statusFilter]);
   const visibleItems = useMemo(() => uniqueItemRows.filter(r => {
     if (!selectedRequest) return true;
     const selected = normalizeRequestNumber(selectedRequest);
@@ -1260,12 +1262,12 @@ const PurchaseRequisitionsSection = React.memo(({ supabase, currentUser, logActi
       <button onClick={() => setView("items")} style={{ flex: 1, border: 0, borderRadius: "9px", padding: "10px", cursor: "pointer", fontWeight: 900, color: view === "items" ? "white" : "#475569", background: view === "items" ? "#0f766e" : "transparent" }}><Package size={15} style={{ verticalAlign: "middle", marginLeft: 5 }} /> أصناف الطلبات تفصيلاً</button>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: "8px", marginBottom: "14px" }}>
-      {card("عدد الطلبات", counts.total, "blue", ListOrdered, "all")}{card("مغلق", counts.closed, "green", CheckCircle, "closed")}{card("مرفوض", counts.rejected, "red", X, "rejected")}{card("قيد المراجعة", counts.review, "amber", Clock, "review")}{card("مسودة", counts.draft, "violet", Edit3, "draft")}
+      {card("Total Requests", counts.total, "blue", ListOrdered, "all")}{card("Closed", counts.closed, "green", CheckCircle, "closed")}{card("Rejected", counts.rejected, "red", X, "rejected")}{card("In Review", counts.review, "amber", Clock, "review")}{card("Draft", counts.draft, "violet", Edit3, "draft")}{card("Approved", counts.approved, "blue", CheckCircle, "approved")}{card("Submitted", counts.submitted, "cyan", Upload, "submitted")}{card("Other", counts.other, "slate", ListOrdered, "other")}
     </div>
     {view === "summary" ? <>
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", background: "white", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "10px", marginBottom: "10px" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ابحث برقم الطلب أو الوصف أو مقدم الطلب..." style={{ flex: 1, minWidth: "220px", padding: "9px 12px", border: "1px solid #cbd5e1", borderRadius: "8px", outline: "none" }} />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: "9px", border: "1px solid #cbd5e1", borderRadius: "8px" }}><option value="all">كل الحالات</option><option value="closed">مغلق</option><option value="rejected">مرفوض</option><option value="review">قيد المراجعة</option><option value="draft">مسودة</option></select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: "9px", border: "1px solid #cbd5e1", borderRadius: "8px" }}><option value="all">All Statuses</option>{statusOrder.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}</select>
       </div>
       <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: "850px", fontSize: "12px", border: "1px solid #94a3b8" }}><thead style={{ background: "#312e81", color: "white" }}><tr>{["رقم الطلب", "الوصف", "مقدم الطلب", "تاريخ الإنشاء", "تاريخ الإرسال", "الشركة", "المعتمد", "الحالة"].map(h => <th key={h} style={{ padding: "13px 9px", textAlign: "right", whiteSpace: "nowrap", border: "1px solid rgba(255,255,255,.55)", fontSize: "13px", fontWeight: 900 }}>{h}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={8} style={{ padding: 30, textAlign: "center" }}>جاري التحميل...</td></tr> : filteredSummary.map((r, i) => { const st = statusStyle(r.status); return <tr key={r.id || i} style={{ borderBottom: "1px solid #cbd5e1", background: i % 2 === 0 ? "#ffffff" : "#f8fafc" }}><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}><button onClick={() => openDetails(r)} style={{ border: 0, background: "transparent", color: "#4f46e5", fontWeight: 900, cursor: "pointer", textDecoration: "underline" }}>{requestNo(r) || "-"}</button></td><td style={{ padding: "10px 8px", maxWidth: 260, border: "1px solid #cbd5e1", verticalAlign: "middle" }}>{getDescription(r)}</td><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}>{r.preparer || "-"}</td><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}>{formatDate(r.request_date || r.created_date)}</td><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}>{formatDate(r.submitted_date)}</td><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}>{r.company_name || r.gp_company_name || "-"}</td><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}>{r.workflow_approver || "-"}</td><td style={{ padding: "10px 8px", border: "1px solid #cbd5e1", verticalAlign: "middle" }}><span style={{ background: st.bg, color: st.color, borderRadius: 999, padding: "4px 9px", fontWeight: 900, whiteSpace: "nowrap" }}>{statusLabel(r.status)}</span></td></tr> })}</tbody></table></div>
     </> : <>
